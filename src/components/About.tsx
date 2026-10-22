@@ -35,10 +35,32 @@ export function AboutPanel({ open, onClose }: { open: boolean; onClose: () => vo
                 <Book name="Saheeh International" by="the quranproject.org edition" />
                 <Book name="The Clear Quran" by="Dr. Mustafa Khattab, the 2017 edition" />
                 <Book name="The Arabic" by="the Madani mushaf of the King Fahd Complex, and the Indo-Pak script">
-                  Word meanings and recitation from quran.com.
+                  Word meanings from quran.com. As a book, the Arabic keeps the lines of the Madani mushaf's 15-line print, as quran.com sets them.
                 </Book>
+                <Book name="Transliteration" by="alquran.cloud (en.transliteration)" />
               </ul>
               <p className="text-[var(--box-muted)]">The translations were read from PDF copies of these books and checked against them word by word.</p>
+            </Part>
+
+            <Part title="Recitation">
+              <p>
+                Mishary Alafasy and Yasser Al-Dosari as quran.com publishes them, with the moment each word is said. Idrees Abkar, Mansour Al-Salimi
+                and Abdullah Al-Khalaf from mp3quran.net, with the moment each ayah begins; within an ayah, the word lit as it is recited is placed by
+                the timing of the same words in the first two. Each reciter has all 114 surahs.
+              </p>
+            </Part>
+
+            <Part title="The pictures">
+              <p>Shared ayahs can be laid on old paintings in the public domain, from museums' open collections:</p>
+              <ul className="flex flex-col gap-2 text-[16px] text-[var(--box-muted)]">
+                <li>Frederic Edwin Church, Twilight in the Wilderness, 1860 · Cleveland Museum of Art</li>
+                <li>Arkhip Kuindzhi, Red Sunset on the Dnieper, 1905–08 · The Metropolitan Museum of Art</li>
+                <li>Arkhip Kuindzhi, Moonlit Night on the Dnieper, 1880 · State Russian Museum</li>
+                <li>Winslow Homer, Early Morning After a Storm at Sea, 1900–02 · Cleveland Museum of Art</li>
+                <li>John Constable, Cloud Study, c. 1822 · Yale Center for British Art</li>
+                <li>John Constable, Cloud Study, 1822 · Tate</li>
+              </ul>
+              <p className="text-[var(--box-muted)]">A bird in two of them was painted over. The other backgrounds are painted by the site itself.</p>
             </Part>
 
             <Part title="Mistakes">

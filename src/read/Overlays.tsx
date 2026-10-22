@@ -1,5 +1,6 @@
 import { animate, AnimatePresence, motion, useIsPresent, useMotionValue } from "framer-motion";
-import { Copy, Mic, Pause, Play, Share2, StickyNote, Trash2, X } from "lucide-react";
+import { Copy, Mic, Pause, Play, Share2, Trash2, X } from "lucide-react";
+import { NoteGlyph } from "@/components/glyphs";
 import { del, get } from "idb-keyval";
 import { voiceKey } from "./VoiceNote";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -10,6 +11,7 @@ import { glossNodes, type GlossLinks } from "./glossText";
 import { glossByTerm } from "./terms";
 import { peekHover, refsIn } from "./Peek";
 import { sfx } from "@/lib/sound";
+import { windowPlace } from "./AyahWindows";
 
 /* ── word meaning tooltip ─────────────────────────────────────── */
 
@@ -192,6 +194,8 @@ export function HighlightMenu({
   onNote,
   onVoice,
   onShare,
+  onRecite,
+  reciting,
 }: {
   hl: Highlight | null;
   at: { x: number; y: number; bottom: number; below?: boolean } | null;
@@ -199,7 +203,9 @@ export function HighlightMenu({
   onCopy: (h: Highlight) => void;
   onNote: (h: Highlight) => void;
   onVoice: (h: Highlight, anchor: DOMRect) => void;
-  onShare: (h: Highlight) => void;
+  onShare?: (h: Highlight) => void; // (not where there is nothing to share it as: the Seerah)
+  onRecite?: (h: Highlight) => void; // its Arabic words heard, recited (Alafasy)
+  reciting?: boolean;
 }) {
   const update = useStore((s) => s.updateHighlight);
   const remove = useStore((s) => s.removeHighlight);
@@ -225,6 +231,35 @@ export function HighlightMenu({
     if (ref.current) setW(ref.current.offsetWidth);
   }, [hl?.id, at]);
   const left = at ? Math.max(w / 2 + 8, Math.min(window.innerWidth - w / 2 - 8, at.x)) : 0;
+  // it stays with its words as the page scrolls under it, and goes once they have left the frame
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useLayoutEffect(() => {
+    if (!hl || !at) return;
+    let raf = 0;
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      const el = ref.current;
+      // (in the reader's scroller, or the Seerah's stage)
+      const marks = document.querySelectorAll<HTMLElement>(`mark[data-hid="${hl.id}"]`);
+      const sc = marks[0]?.closest<HTMLElement>(".snap-scroller, [data-hl-box]");
+      if (!el || !sc || !marks?.length) return;
+      const box = sc.getBoundingClientRect();
+      const r1 = marks[0].getBoundingClientRect(), r2 = marks[marks.length - 1].getBoundingClientRect();
+      const top = Math.min(r1.top, r2.top), bottom = Math.max(r1.bottom, r2.bottom);
+      if (bottom < box.top + 4 || top > box.bottom - 4) {
+        cancelAnimationFrame(raf);
+        closeRef.current();
+        return;
+      }
+      const half = el.offsetWidth / 2;
+      const x = (r1.left + r2.right) / 2 || r1.left + r1.width / 2;
+      el.style.left = `${Math.max(half + 8, Math.min(window.innerWidth - half - 8, x))}px`;
+      el.style.top = `${above ? top : bottom}px`;
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [hl?.id, at, above]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <AnimatePresence>
       {hl && at && (
@@ -261,14 +296,21 @@ export function HighlightMenu({
               </button>
             ))}
             <span className="mx-1 h-5 w-px bg-[var(--box-line)]" />
+            {onRecite && hl.field === "ar" && (
+              <MenuBtn label={reciting ? "Stop" : "Hear these words recited"} onClick={() => onRecite(hl)}>
+                {reciting ? <Pause size={14} strokeWidth={1.6} /> : <Play size={14} strokeWidth={1.6} className="ml-px" />}
+              </MenuBtn>
+            )}
             <MenuBtn label="Copy highlighted text" onClick={() => onCopy(hl)}>
               <Copy size={14} strokeWidth={1.6} />
             </MenuBtn>
-            <MenuBtn label="Share this part as an image" onClick={() => onShare(hl)}>
-              <Share2 size={14} strokeWidth={1.6} />
-            </MenuBtn>
+            {onShare && (
+              <MenuBtn label="Share this part as an image" onClick={() => onShare(hl)}>
+                <Share2 size={14} strokeWidth={1.6} />
+              </MenuBtn>
+            )}
             <MenuBtn label="Add a note to this highlight" onClick={() => onNote(hl)}>
-              <StickyNote size={14} strokeWidth={1.6} />
+              <NoteGlyph size={14} />
             </MenuBtn>
             <MenuBtn label="Record a voice note on this highlight" onClick={(e) => onVoice(hl, e.currentTarget.getBoundingClientRect())}>
               <Mic size={14} strokeWidth={1.6} />
@@ -319,15 +361,21 @@ export function StickyNotes({ notes, focusId, onFocused }: { notes: Note[]; focu
   );
 }
 
+/** What a note is on: an ayah, or what its label says (a section of the Seerah). */
+const onWhat = (n: Note) => n.label ?? `ayah ${n.key}`;
+
 function noteSize(n: Note) {
   const small = window.innerWidth < 768;
   return n.kind === "voice" ? { w: small ? 208 : 236, h: n.quote ? 156 : 138 } : { w: small ? 190 : 232, h: small ? 190 : 232 };
 }
 
-/** Where a note sits: freely anywhere, or tucked behind an edge with a corner peeking out. */
+/** Where a note sits: freely anywhere, tucked behind an edge with a corner peeking out, or stuck on
+ *  an ayah brought up beside the page (carried with it). */
 function placeOf(n: Note) {
   const vw = window.innerWidth, vh = window.innerHeight;
   const { w, h } = noteSize(n);
+  const on = n.win ? windowPlace.get(n.win) : undefined;
+  if (on) return { left: on.L.get() + (n.wx ?? 0), top: on.T.get() + (n.wy ?? 0) };
   const left = n.x * vw, top = n.y * vh;
   const clampY = (y: number) => Math.min(vh - PEEK - 8, Math.max(8 - h + PEEK, y));
   const clampX = (x: number) => Math.min(vw - PEEK - 8, Math.max(8 - w + PEEK, x));
@@ -356,7 +404,7 @@ function NoteCard({ note, autoFocus, onFocused }: { note: Note; autoFocus: boole
   const moved = useRef(false);
   // the note follows the pointer directly: where it is let go is exactly where it stays
   // (pressed on the words, the note still drags; a plain tap there writes, one on the fold shares)
-  const grab = useRef<{ id: number; x: number; y: number; l: number; t: number; text: HTMLTextAreaElement | null; share: boolean; ref: HTMLElement | null } | null>(null);
+  const grab = useRef<{ id: number; x: number; y: number; l: number; t: number; text: HTMLTextAreaElement | null; share: boolean; ref: HTMLElement | null; moved?: boolean } | null>(null);
 
   // the note going (its ayah scrolled out of the frame, or the note deleted): an ayah opened from
   // it goes with it
@@ -369,8 +417,26 @@ function NoteCard({ note, autoFocus, onFocused }: { note: Note; autoFocus: boole
     return close;
   }, [present, note.id]);
 
+  // stuck on a window: carried with it wherever it goes (unless it is in the hand)
+  useEffect(() => {
+    const on = note.win ? windowPlace.get(note.win) : undefined;
+    if (!on) return;
+    const follow = () => {
+      if (grab.current?.moved) return;
+      L.set(on.L.get() + (note.wx ?? 0));
+      T.set(on.T.get() + (note.wy ?? 0));
+    };
+    follow();
+    const a = on.L.on("change", follow), b = on.T.on("change", follow);
+    return () => {
+      a();
+      b();
+    };
+  }, [note.win, note.wx, note.wy, L, T]);
+
   // glide to a new place when it changes (docking, undocking, window resize)
   useEffect(() => {
+    if (note.win && windowPlace.get(note.win)) return;
     const a = animate(L, place.left, { type: "spring", stiffness: 260, damping: 30 });
     const b = animate(T, place.top, { type: "spring", stiffness: 260, damping: 30 });
     return () => {
@@ -405,6 +471,7 @@ function NoteCard({ note, autoFocus, onFocused }: { note: Note; autoFocus: boole
     if (!moved.current && Math.hypot(ox, oy) < 4) return; // a click, not a drag
     if (!moved.current) {
       moved.current = true;
+      g.moved = true;
       setDrag(true);
       sfx("lift"); // the paper picked up
     }
@@ -453,6 +520,26 @@ function NoteCard({ note, autoFocus, onFocused }: { note: Note; autoFocus: boole
       settle(next);
       return;
     }
+    // laid on an ayah brought up beside the page, by any of it (the edge of its tape too): stuck to the one
+    // it lies on most, to go where it goes (taken off it, free again)
+    const parts = [
+      { l: left, t: top, r: left + w, b: top + h },
+      { l: left + w / 2 - 40, t: top - 12, r: left + w / 2 + 40, b: top + 12 }, // (the tape)
+    ];
+    let win: HTMLElement | undefined, most = 0;
+    for (const el of document.querySelectorAll<HTMLElement>("[data-ayah-window]")) {
+      const r = el.getBoundingClientRect();
+      const over = parts.reduce((sum, p) => sum + Math.max(0, Math.min(p.r, r.right) - Math.max(p.l, r.left)) * Math.max(0, Math.min(p.b, r.bottom) - Math.max(p.t, r.top)), 0);
+      if (over > most) (most = over), (win = el);
+    }
+    const winId = win?.dataset.ayahWindow;
+    const on = winId ? windowPlace.get(winId) : undefined;
+    const owner = winId ? useStore.getState().windows[winId] : undefined;
+    if (winId && on && owner) {
+      const stuck = { win: winId, wx: left - on.L.get(), wy: top - on.T.get(), key: owner.key, docked: null };
+      update(note.id, stuck);
+      return;
+    }
     // how much of the note is still on screen?
     const visW = Math.max(0, Math.min(vw, left + w) - Math.max(0, left));
     const visH = Math.max(0, Math.min(vh, top + h) - Math.max(0, top));
@@ -462,8 +549,8 @@ function NoteCard({ note, autoFocus, onFocused }: { note: Note; autoFocus: boole
       const over = { left: -left, right: left + w - vw, top: -top, bottom: top + h - vh };
       docked = (Object.entries(over).sort((a, b) => b[1] - a[1])[0][0] as Note["docked"]) ?? null;
     }
-    update(note.id, { x: left / vw, y: top / vh, docked });
-    settle({ ...note, x: left / vw, y: top / vh, docked });
+    update(note.id, { x: left / vw, y: top / vh, docked, win: undefined, wx: undefined, wy: undefined });
+    settle({ ...note, x: left / vw, y: top / vh, docked, win: undefined });
   };
 
   return (
@@ -573,7 +660,7 @@ function PaperCard({ note, drag, autoFocus, onFocused }: { note: Note; drag: boo
     >
       <span className="absolute -top-3 left-1/2 h-6 w-20 -translate-x-1/2 rotate-[-3deg] bg-[rgba(255,255,255,0.45)] shadow-[0_1px_2px_rgba(0,0,0,0.12)] backdrop-blur-[2px]" />
       <div className="flex items-start justify-between gap-2">
-        <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#6b5a24]">ayah {note.key}</span>
+        <span className="truncate font-mono text-[9px] uppercase tracking-[0.14em] text-[#6b5a24]">{onWhat(note)}</span>
         <button
           type="button"
           aria-label="Delete note"
@@ -603,7 +690,7 @@ function PaperCard({ note, drag, autoFocus, onFocused }: { note: Note; drag: boo
           }}
           onScroll={sync}
           onBlur={() => text !== note.text && update(note.id, { text })}
-          aria-label={`Note on ayah ${note.key}`}
+          aria-label={`Note on ${onWhat(note)}`}
           className="no-scrollbar absolute inset-0 h-full w-full resize-none bg-transparent font-hand text-[21px] leading-[28px] text-[#2b2410] outline-none placeholder:text-[#8a7a45]"
           placeholder="Write here…"
           dir="auto"
@@ -616,7 +703,7 @@ function PaperCard({ note, drag, autoFocus, onFocused }: { note: Note; drag: boo
           </div>
         )}
       </div>
-      <ShareFold note={note} tone="#6b5a24" />
+      {!note.label && <ShareFold note={note} tone="#6b5a24" />}
     </div>
   );
 }
@@ -757,9 +844,9 @@ function VoiceCard({ note, drag }: { note: Note; drag: boolean }) {
         className="pointer-events-none absolute bottom-0 right-0 h-[34px] w-[34px]"
         style={{ background: "linear-gradient(135deg, rgba(0,0,0,0) 45%, rgba(0,0,0,0.16) 50%, #c9ad74 56%, #ecdcb4 100%)", boxShadow: "-3px -3px 6px rgba(0,0,0,0.08)" }}
       />
-      <ShareFold note={note} tone="#5b4420" />
+      {!note.label && <ShareFold note={note} tone="#5b4420" />}
       <div className="flex items-center justify-between pr-7 font-mono text-[9px] uppercase tracking-[0.14em] text-[#6b5024]">
-        <span>ayah {note.key}</span>
+        <span className="truncate">{onWhat(note)}</span>
         <span className="tabular-nums">
           {Math.floor(dur / 60)}:{String(Math.floor(dur % 60)).padStart(2, "0")}
         </span>

@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Bookmark, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Maximize2, Mic, Search, Share2, StickyNote } from "lucide-react";
-import { QuillGlyph } from "@/components/glyphs";
+import { Bookmark, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Maximize2, Mic, Pause, Play, Search, Share2, SquarePlus } from "lucide-react";
+import { BrainGlyph, NoteGlyph } from "@/components/glyphs";
 import { EASE_IN_OUT, EASE_OUT, cn } from "@/lib/utils";
 import { THEMES } from "@/lib/themes";
 import { glossFor } from "./terms";
@@ -16,7 +16,7 @@ type Step = { title: string; text: ReactNode; demo: () => ReactNode };
 const STEPS: Step[] = [
   {
     title: "One ayah, or many",
-    text: "The switch at the top right of the reader: one ayah fills the frame, or many run one after another. Tap the one already chosen for the ways to read: Arabic and translation, either alone, and with many ayahs, either alone as a book.",
+    text: "The switch at the top right of the reader: one ayah fills the frame, or many run one after another. Tap the one already chosen for the ways to read: Arabic and translation, either alone, and with many ayahs, either alone as a book. The Arabic as a book keeps the lines of the printed mushaf.",
     demo: () => <ViewDemo />,
   },
   {
@@ -31,8 +31,18 @@ const STEPS: Step[] = [
   },
   {
     title: "Each ayah's own tools",
-    text: "Beside every ayah: bookmark it, write a note, record a voice note, copy it, or share it as a picture. Make folders in Saved, and a bookmark asks which ones to go in.",
+    text: "Beside every ayah: hear it recited, bookmark it, add to it (a note, a voice note, or another ayah brought up beside it), and share it as a picture or copy it. Make folders in Saved, and a bookmark asks which ones to go in.",
     demo: () => <ToolsDemo />,
+  },
+  {
+    title: "Listen",
+    text: "The play button beside an ayah recites it, each word lit as it is said, and stops at its end. The controls at the foot of the frame go on to the next ayah, change the reciter, and turn on Play on, for the surah to carry on ayah after ayah, the page following. A highlighted part of the Arabic can be heard alone, from its menu.",
+    demo: () => <ListenDemo />,
+  },
+  {
+    title: "Another ayah beside it",
+    text: "Add → Bring up another ayah: any ayah, by its reference or its name, opens in a small window over the page, there whenever this ayah is. Move it anywhere; draw the knot at its top out to an ayah or a single word to tie it there; take the thread by its far end to move it to another word, or let go of it outside the ayah to untie it. Write in it, or lay a note on it to carry. Its arrow goes to that ayah, and a button brings you back.",
+    demo: () => <WindowDemo />,
   },
   {
     title: "Notes on the page",
@@ -56,7 +66,7 @@ const STEPS: Step[] = [
   },
   {
     title: "Find anything",
-    text: "Search by number (18), reference (2:255), name (Kahf, الكهف) or a word (mercy). Index returns to the surahs, and shows them other ways too: by juz, theme or topic, the supplications, the prostrations, the summaries.",
+    text: "Search for a surah, an ayah or a word: 18, 2:255, Kahf 10, الكهف, mercy. Index returns to the surahs, and shows them other ways too: by juz, theme or topic, the supplications, the prostrations, the summaries.",
     demo: () => <SearchDemo />,
   },
   {
@@ -76,7 +86,7 @@ const STEPS: Step[] = [
   },
   {
     title: "Make it yours",
-    text: "Five themes, each its own look, type and motion: choose one on the first page, or in Display, with the sizes of the Arabic and the translation and the highlighter's sound.",
+    text: "Three themes, each its own look, type and motion: choose one on the first page, or in Display, with the sizes of the Arabic and the translation. In Reading, show each ayah's transliteration under its Arabic.",
     demo: () => <ThemesDemo />,
   },
 ];
@@ -119,10 +129,12 @@ const KEYS: { group: string; rows: [string, string[][]][] }[] = [
   {
     group: "The ayah in the frame",
     rows: [
+      ["Recite it · pause", [["L"]]],
       ["Bookmark it", [["B"]]],
       ["Write a note", [["N"]]],
       ["Record a voice note", [["Shift", "N"]]],
       ["Share it as an image", [["P"]]],
+      ["Bring up another ayah beside it", [["O"]]],
       ["Copy it", [[CMD, "C"]]],
     ],
   },
@@ -433,7 +445,7 @@ function HighlightDemo() {
               <span key={c} className={cn("h-4 w-4 rounded-full", c === color && "ring-2 ring-[var(--box-fg)] ring-offset-2 ring-offset-[var(--box-bg-solid)]")} style={{ background: c }} />
             ))}
             <span className="mx-1 h-4 w-px bg-[var(--box-line)]" />
-            <Copy size={13} /> <StickyNote size={13} /> <Mic size={13} />
+            <Copy size={13} /> <NoteGlyph size={13} /> <Mic size={13} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -442,12 +454,11 @@ function HighlightDemo() {
 }
 
 function ToolsDemo() {
-  const k = useLoop(6, 900);
+  const k = useLoop(5, 900);
   const tools = [
+    [Play, "Recite"],
     [Bookmark, "Bookmark"],
-    [StickyNote, "Note"],
-    [Mic, "Voice note"],
-    [Copy, "Copy"],
+    [SquarePlus, "Add"],
     [Share2, "Share"],
   ] as const;
   return (
@@ -463,6 +474,60 @@ function ToolsDemo() {
           </motion.div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** the words lit one after another, as a recitation says them, the foot's controls under them */
+function ListenDemo() {
+  const words = ["قُلۡ", "هُوَ", "ٱللَّهُ", "أَحَدٌ"];
+  const k = useLoop(words.length + 2, 700);
+  const playing = k < words.length;
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-7">
+      <div className="quran text-[30px]" dir="rtl">
+        {words.map((w, i) => (
+          <span key={i} className={cn("transition-colors duration-200", playing && i === k ? "text-[var(--box-accent)]" : "")}>
+            {w}{" "}
+          </span>
+        ))}
+      </div>
+      <div className="flex items-center gap-3 border-t border-[var(--box-line)] px-4 pt-3">
+        <span className="flex h-7 w-7 items-center justify-center">{playing ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}</span>
+        <span className="label text-[var(--box-faint)]">112:1 · Reciter</span>
+        <span className="label ml-4 text-[var(--box-faint)]">Play on</span>
+      </div>
+    </div>
+  );
+}
+
+/** a window brought up over the page, hanging from a word by its thread */
+function WindowDemo() {
+  const k = useLoop(3, 1400);
+  return (
+    <div className="relative h-full">
+      <div className="quran absolute left-[8%] top-[58%] text-[24px]" dir="rtl">
+        <span className="text-[var(--box-accent)]">ٱللَّهُ</span> لَآ إِلَٰهَ إِلَّا هُوَ
+      </div>
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 160 100" preserveAspectRatio="none" aria-hidden>
+        <motion.path
+          d="M 112 26 Q 90 70 52 60"
+          animate={{ d: k === 1 ? "M 112 26 Q 96 76 52 60" : k === 2 ? "M 112 26 Q 84 64 52 60" : "M 112 26 Q 90 70 52 60" }}
+          transition={{ duration: 1.2, ease: EASE_IN_OUT }}
+          fill="none"
+          stroke="var(--box-accent)"
+          strokeWidth="0.6"
+        />
+      </svg>
+      <motion.div
+        className="absolute right-[8%] top-[18%] w-[38%] border border-[var(--box-line)] bg-[var(--box-bg-solid)] p-2.5"
+        animate={{ rotate: k === 1 ? -2 : k === 2 ? 1.5 : 0, y: k === 1 ? 4 : 0 }}
+        transition={{ duration: 1.2, ease: EASE_IN_OUT }}
+      >
+        <span className="absolute -top-[5px] left-1/2 h-[9px] w-[9px] -translate-x-1/2 rounded-full bg-[var(--box-accent)]" />
+        <div className="label text-[var(--box-faint)]">2:255</div>
+        <div className="quran mt-1 text-right text-[15px]" dir="rtl">ٱللَّهُ لَآ إِلَٰهَ إِلَّا هُوَ</div>
+      </motion.div>
     </div>
   );
 }
@@ -554,7 +619,7 @@ function SliderDemo() {
         </div>
         <span className="label-sm text-[var(--box-faint)]">286</span>
         <motion.span animate={{ color: k === 3 ? "var(--color-gold)" : "var(--box-fg)", scale: k === 3 ? 1.15 : 1 }}>
-          <QuillGlyph size={17} />
+          <BrainGlyph size={17} />
         </motion.span>
       </div>
     </div>

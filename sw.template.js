@@ -62,7 +62,8 @@ self.addEventListener("message", (event) => {
   if (event.data !== "keep-all" || keepingAll) return;
   keepingAll = (async () => {
     const cache = await caches.open(CACHE);
-    const rest = Object.keys(FILES).filter((p) => p.startsWith("data/") && !isShell(p));
+    // (not the recitations' timings, nor the transliteration: those are kept as they are first used)
+    const rest = Object.keys(FILES).filter((p) => p.startsWith("data/") && !isShell(p) && !/^data\/(recite|tl)\/|^data\/translit\.json$/.test(p));
     for (let i = 0; i < rest.length; i += 3) {
       await Promise.all(rest.slice(i, i + 3).map((p) => keep(cache, p).catch(() => {})));
     }

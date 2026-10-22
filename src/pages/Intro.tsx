@@ -1,22 +1,18 @@
 import { motion } from "framer-motion";
 import { useEffect, useRef } from "react";
-import { ArrowRight } from "lucide-react";
 import { BracketButton, Clock } from "@/components/bits";
-import { CoverSearch, CoverSearchField } from "@/components/CoverSearch";
+import { CoverSearch } from "@/components/CoverSearch";
 import { SettingsGlyph } from "@/components/ImmersivePanel";
 import type { Surah } from "@/lib/data";
 import type { Result } from "@/lib/search";
-import { useUI } from "@/lib/ui";
-import { useStore } from "@/lib/store";
-import { ayn } from "@/lib/names";
 import { EASE_OUT, cn } from "@/lib/utils";
 
 /**
- * Page one: the frame itself, small, like the cover of the book. It has the
- * reading page's header and footer and the same box theme; entering grows
- * this same frame into the index, and Settings grows it to full size. Its foot
- * is a search: pressed, or simply typed into, the cover becomes the search, and
- * what is picked opens straight in the reader.
+ * Page one: the frame itself, small, like the cover of the book, with the reading page's header and
+ * the same box theme. In it, the ways in, a strip each, named and nothing more: the Qur'an (the frame
+ * grows into its index), the Seerah, and an ayah made into a video to share. Below it, a strip of its
+ * own (CoverStrip): the search, and Continue. Typed into, the cover becomes the search, and what is
+ * picked opens straight in the reader.
  */
 export function Intro({
   onEnter,
@@ -27,7 +23,8 @@ export function Intro({
   searching,
   onSearching,
   onPick,
-  onContinue,
+  onSeerah,
+  onVideo,
 }: {
   onEnter: () => void;
   onSettings: () => void;
@@ -37,12 +34,9 @@ export function Intro({
   searching: boolean;
   onSearching: (on: boolean) => void;
   onPick: (r: Result) => void;
-  onContinue: (surah: number, ayah: number) => void; // straight back to where the reader left off
+  onSeerah: () => void;
+  onVideo: () => void;
 }) {
-  // where the reading stopped last time (not the very start of the Qur'an, which is no place to come back to)
-  const last = useStore((s) => s.last);
-  const resume = last && !(last.s === 1 && last.v <= 1) ? last : null;
-  const resumeName = resume ? index?.surahs[resume.s - 1]?.tc : undefined;
   const started = useRef(false);
   const go = () => {
     if (started.current) return;
@@ -85,15 +79,9 @@ export function Intro({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsOpen, searching]);
 
-  const rise = (delay: number) => ({
-    initial: { opacity: 0, y: 14, filter: "blur(6px)" },
-    animate: { opacity: 1, y: 0, filter: "blur(0px)" },
-    transition: { duration: 0.9, ease: EASE_OUT, delay },
-  });
-
   return (
     <div className="cover-page relative flex h-full flex-col text-[var(--box-fg)]">
-      {/* header, as on the reading page: the time, and the way to About and Settings */}
+      {/* header, as on the reading page: the time, and the way to Settings */}
       <motion.header
         className="relative z-10 flex h-12 shrink-0 items-center justify-between border-b border-[var(--box-line)] pl-5 pr-2 md:h-[52px] md:pl-7"
         initial={{ opacity: 0 }}
@@ -101,89 +89,66 @@ export function Intro({
         transition={{ duration: 0.8, delay: 0.3 }}
       >
         <Clock className="label-sm text-[var(--box-faint)]" />
-        <span className="flex items-center">
-          <BracketButton onClick={() => useUI.getState().setAbout(true)} title="About this reader">
-            About
-          </BracketButton>
-          {mobile ? (
-            <button
-              type="button"
-              onClick={onSettings}
-              aria-label="Settings"
-              title="Settings"
-              className="flex h-9 w-9 items-center justify-center text-[var(--box-muted)] transition-colors hover:bg-[var(--box-hover)] hover:text-[var(--box-fg)]"
-            >
-              <SettingsGlyph open={settingsOpen} />
-            </button>
-          ) : (
-            <BracketButton onClick={onSettings} active={settingsOpen} title="Settings">
-              Settings
-            </BracketButton>
-          )}
-        </span>
-      </motion.header>
-
-      {/* the cover */}
-      <div className={cn("relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-6 text-center transition-[opacity,filter,transform] duration-500 ease-out", searching && "pointer-events-none -translate-y-2 opacity-0 blur-[3px]")} aria-hidden={searching}>
-        <motion.span
-          className="font-kufi leading-none text-[var(--box-fg)]"
-          style={{ fontSize: mobile ? 52 : 72 }}
-          dir="rtl"
-          lang="ar"
-          {...rise(0.55)}
-        >
-          القرآن الكريم
-        </motion.span>
-        <motion.span className="display cover-name mt-5 font-serif italic leading-none" style={{ fontSize: mobile ? 24 : 30 }} {...rise(0.7)}>
-          Al-Qur’ān al-Karīm
-        </motion.span>
-        <motion.div {...rise(0.9)} className="mt-9">
+        {mobile ? (
           <button
             type="button"
-            onClick={go}
-            tabIndex={searching ? -1 : 0}
-            aria-label="Read the Qur'an"
-            className="btn-primary group relative inline-flex items-center gap-3 overflow-hidden border border-[var(--box-fg)]/60 px-5 py-3 transition-colors duration-300 hover:border-[var(--box-fg)] hover:bg-[var(--box-fg)] hover:text-[var(--box-bg-solid)]"
+            onClick={onSettings}
+            aria-label="Settings"
+            title="Settings"
+            className="flex h-9 w-9 items-center justify-center text-[var(--box-muted)] transition-colors hover:bg-[var(--box-hover)] hover:text-[var(--box-fg)]"
           >
-            {/* a light passing across on hover */}
-            <span className="pointer-events-none absolute -inset-y-4 -left-1/2 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/40 to-transparent opacity-0 transition-all duration-700 group-hover:left-[120%] group-hover:opacity-100" />
-            <span className="label relative">Read the Qur'an</span>
-            <ArrowRight size={14} strokeWidth={1.6} className="relative transition-transform duration-500 ease-out group-hover:translate-x-1" />
+            <SettingsGlyph open={settingsOpen} />
           </button>
-        </motion.div>
-      </div>
-
-      {/* footer, as on the reading page: the search, at rest */}
-      <motion.footer
-        className="frame-foot relative z-10 flex h-10 shrink-0 items-stretch justify-center border-t border-[var(--box-line)] px-5 md:h-11 md:px-7"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: searching ? 0 : 1 }}
-        transition={searching ? { duration: 0.25 } : { duration: 0.6, delay: 0.2 }}
-      >
-        <CoverSearchField onOpen={openSearch} hidden={searching} short={!!resume && mobile} className="flex-1" />
-        {/* and, when there is a place to go back to, Continue: the foot split by a line, the button
-            on the right, as wide as its words */}
-        {resume && (
-          <>
-            <span aria-hidden className="w-px shrink-0 bg-[var(--box-line)]" />
-            <button
-              type="button"
-              onClick={() => onContinue(resume.s, resume.v)}
-              tabIndex={searching ? -1 : 0}
-              aria-label={`Continue reading${resumeName ? ` ${ayn(resumeName)},` : ""} at ayah ${resume.s}:${resume.v}`}
-              title="Continue where you left off"
-              className={cn("group -mr-5 flex shrink-0 items-center gap-2 pl-4 pr-5 text-[var(--box-faint)] transition-[color,background-color,opacity] duration-300 hover:bg-[var(--box-hover)] hover:text-[var(--box-fg)] md:-mr-7 md:pl-5 md:pr-7", searching && "pointer-events-none opacity-0")}
-            >
-              <span className="label-sm whitespace-nowrap">
-                Continue <span className="tabular-nums text-[var(--box-muted)] transition-colors duration-300 group-hover:text-[var(--box-fg)]">{resume.s}:{resume.v}</span>
-              </span>
-              <ArrowRight size={12} strokeWidth={1.7} className="shrink-0 transition-transform duration-300 group-hover:translate-x-0.5" />
-            </button>
-          </>
+        ) : (
+          <BracketButton onClick={onSettings} active={settingsOpen} title="Settings">
+            Settings
+          </BracketButton>
         )}
-      </motion.footer>
+      </motion.header>
+
+      {/* the cover: the ways in, one strip each */}
+      <div
+        className={cn("relative flex min-h-0 flex-1 flex-col justify-center gap-3 p-3 transition-[opacity,filter,transform] duration-500 ease-out md:gap-4 md:p-5", searching && "pointer-events-none -translate-y-2 opacity-0 blur-[3px]")}
+        aria-hidden={searching}
+      >
+        <Way ar="القرآن الكريم" en="Al-Qur’ān al-Karīm" label="Read the Qur'an" onClick={go} tabIndex={searching ? -1 : 0} mobile={mobile} delay={0.55} />
+        <Way ar="السيرة النبوية" en="As-Sīrah an-Nabawiyyah" label="The Seerah" onClick={onSeerah} tabIndex={searching ? -1 : 0} mobile={mobile} delay={0.7} seerah />
+        <Way ar="شارك آية" en="Share an Āyah" label="Make a video of ayahs to share" onClick={onVideo} tabIndex={searching ? -1 : 0} mobile={mobile} delay={0.85} />
+      </div>
 
       <CoverSearch surahs={index?.surahs ?? []} juz={index?.juz ?? {}} open={searching} onClose={closeSearch} onPick={onPick} inputRef={field} />
     </div>
+  );
+}
+
+/**
+ * A way in from the cover, a strip across the box: its name in Arabic along the top, in English along
+ * the foot. Hovered, a light passes across it.
+ */
+function Way({ ar, en, label, onClick, tabIndex, mobile, delay, seerah }: { ar: string; en: string; label: string; onClick: () => void; tabIndex: number; mobile: boolean; delay: number; seerah?: boolean }) {
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      tabIndex={tabIndex}
+      aria-label={label}
+      className={cn("cover-way group relative flex max-h-[200px] min-h-[92px] flex-1 flex-col justify-between overflow-hidden border border-[var(--box-line)] px-4 py-3.5 text-left transition-[border-color,background-color] duration-300 hover:border-[var(--box-muted)] hover:bg-[var(--box-hover)] md:px-6 md:py-5", seerah && "is-seerah")}
+      initial={{ opacity: 0, y: 14, filter: "blur(6px)" }}
+      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+      transition={{ duration: 0.9, ease: EASE_OUT, delay }}
+    >
+      {/* a light passing across on hover */}
+      <span className="pointer-events-none absolute -inset-y-4 -left-1/2 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 transition-all duration-700 group-hover:left-[120%] group-hover:opacity-100" />
+      <span className="relative flex items-start justify-end gap-3">
+        <span className="font-kufi leading-none text-[var(--box-fg)] transition-transform duration-500 ease-out group-hover:-translate-x-1" style={{ fontSize: mobile ? 34 : 46 }} dir="rtl" lang="ar">
+          {ar}
+        </span>
+      </span>
+      <span className="relative flex items-end">
+        <span className="display cover-name font-serif italic leading-none transition-transform duration-500 ease-out group-hover:translate-x-1" style={{ fontSize: mobile ? 19 : 24 }}>
+          {en}
+        </span>
+      </span>
+    </motion.button>
   );
 }

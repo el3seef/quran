@@ -110,6 +110,29 @@ export function fullHeadings(vs: { h?: string }[]): (string | null)[] {
   });
 }
 
+/** Each ayah's transliteration (alquran.cloud, en.transliteration: scripts/fetch_translit.mjs). */
+const translits = new Map<number, Promise<string[]>>();
+export function loadTranslit(n: number) {
+  let p = translits.get(n);
+  if (!p) {
+    p = fetch(`${import.meta.env.BASE_URL}data/tl/${n}.json`).then((r) => {
+      if (!r.ok) throw new Error(String(r.status));
+      return r.json() as Promise<string[]>;
+    });
+    p.catch(() => translits.delete(n));
+    translits.set(n, p);
+  }
+  return p;
+}
+
+/** The printed mushaf's line breaks (scripts/fetch_lines.mjs): per surah, [ayah, word, …] where a line begins. */
+let linesPromise: Promise<Record<string, number[]>> | null = null;
+export function loadLines() {
+  linesPromise ??= fetch(`${import.meta.env.BASE_URL}data/lines.json`).then((r) => r.json());
+  linesPromise.catch(() => (linesPromise = null));
+  return linesPromise;
+}
+
 let searchPromise: Promise<[string, string, string, string][]> | null = null;
 export function loadSearchIndex() {
   searchPromise ??= fetch(`${import.meta.env.BASE_URL}data/search.json`).then((r) => r.json());

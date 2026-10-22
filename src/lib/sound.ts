@@ -384,3 +384,90 @@ export function wakeSound() {
     /* not yet */
   }
 }
+
+/* ── the Seerah's sounds: no music, only what the place and the moment would sound like. A turn to
+   the next section is a breath of air passing the way the page moves; coming into a night it is
+   joined by a faint chime, into a battle by a low drum-like thud, into a document by the rustle of
+   paper, into the desert by a gust of wind. A small tick for the timeline, a soft knock for a card
+   that opens. ── */
+
+export type SeerahSfx = "turn" | "chime" | "thud" | "paper" | "wind" | "tick" | "open" | "ember";
+
+/** One of the Seerah's sounds; `pan` (-1 to 1) where it passes, for a turn. */
+export function seerahSfx(kind: SeerahSfx, pan = 0) {
+  const s = readSettings();
+  if (!s || !s.sound) return;
+  const c = context();
+  if (!c) return;
+  const t = c.currentTime + 0.01;
+  const out = c.createGain();
+  const p = c.createStereoPanner ? c.createStereoPanner() : null;
+  if (p) {
+    p.pan.value = Math.max(-1, Math.min(1, pan));
+    out.connect(p).connect(c.destination);
+  } else out.connect(c.destination);
+  switch (kind) {
+    case "turn": {
+      // air drawn past: a band of noise sweeping up and away, the pan travelling across
+      const src = c.createBufferSource();
+      src.buffer = noiseBuffer(c);
+      const bp = c.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.Q.value = 0.9;
+      bp.frequency.setValueAtTime(320, t);
+      bp.frequency.exponentialRampToValueAtTime(1900, t + 0.32);
+      bp.frequency.exponentialRampToValueAtTime(520, t + 0.85);
+      const env = c.createGain();
+      env.gain.setValueAtTime(0.0001, t);
+      env.gain.exponentialRampToValueAtTime(0.11, t + 0.22);
+      env.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
+      if (p) {
+        p.pan.setValueAtTime(Math.max(-1, Math.min(1, pan)), t);
+        p.pan.linearRampToValueAtTime(Math.max(-1, Math.min(1, -pan)), t + 0.9);
+      }
+      src.connect(bp).connect(env).connect(out);
+      src.start(t, Math.random() * 0.2, 0.95);
+      break;
+    }
+    case "chime":
+      bell(c, t + 0.1, 1046, 0.022, out);
+      bell(c, t + 0.32, 1568, 0.014, out);
+      break;
+    case "thud":
+      tone(c, t, { f0: 70, f1: 42, gain: 0.16, attack: 0.006, decay: 0.75, out });
+      noiseBurst(c, t, { lo: 60, hi: 400, gain: 0.05, attack: 0.004, decay: 0.3, out });
+      break;
+    case "paper":
+      for (let i = 0; i < 5; i++) noiseBurst(c, t + i * 0.045 + Math.random() * 0.02, { lo: 1800, hi: 7500, gain: 0.02 + Math.random() * 0.015, attack: 0.002, decay: 0.03 + Math.random() * 0.03, out });
+      break;
+    case "wind": {
+      const src = c.createBufferSource();
+      src.buffer = noiseBuffer(c);
+      src.loop = true;
+      const lp = c.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.setValueAtTime(380, t);
+      lp.frequency.linearRampToValueAtTime(900, t + 0.9);
+      lp.frequency.linearRampToValueAtTime(300, t + 2.2);
+      const env = c.createGain();
+      env.gain.setValueAtTime(0.0001, t);
+      env.gain.exponentialRampToValueAtTime(0.07, t + 0.8);
+      env.gain.exponentialRampToValueAtTime(0.0001, t + 2.3);
+      src.connect(lp).connect(env).connect(out);
+      src.start(t);
+      src.stop(t + 2.4);
+      break;
+    }
+    case "ember":
+      // a few crackles, low and dry
+      for (let i = 0; i < 7; i++) noiseBurst(c, t + Math.random() * 0.6, { lo: 900, hi: 4000, gain: 0.012 + Math.random() * 0.02, attack: 0.0005, decay: 0.008 + Math.random() * 0.01, out });
+      break;
+    case "tick":
+      noiseBurst(c, t, { lo: 3000, hi: 9000, gain: 0.018, attack: 0.0004, decay: 0.003, out });
+      break;
+    case "open":
+      tone(c, t, { f0: 240, f1: 170, gain: 0.04, attack: 0.002, decay: 0.08, out });
+      noiseBurst(c, t, { lo: 1200, hi: 5000, gain: 0.02, attack: 0.002, decay: 0.05, out });
+      break;
+  }
+}

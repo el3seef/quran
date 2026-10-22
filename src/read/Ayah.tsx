@@ -1,5 +1,6 @@
 import { Fragment, memo, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Bookmark, BookmarkCheck, Copy, Mic, Share2, StickyNote } from "lucide-react";
+import { BookOpenText, Bookmark, BookmarkCheck, Copy, Mic, Pause, PictureInPicture2, Play, Share2 } from "lucide-react";
+import { NoteGlyph } from "@/components/glyphs";
 import type { Verse } from "@/lib/data";
 import { TRANSLATIONS } from "@/lib/data";
 import type { Highlight, Settings } from "@/lib/store";
@@ -7,7 +8,7 @@ import { arabicSize, arabicWords, inkOf, newestOf, shownPieces, splitPiece, tran
 import { phrasesIn, renderTerms } from "./terms";
 import { cn } from "@/lib/utils";
 
-export type AyahAction = "bookmark" | "copy" | "share" | "note" | "voice" | "context";
+export type AyahAction = "bookmark" | "copy" | "share" | "note" | "voice" | "context" | "recite" | "window" | "tafsir";
 
 type Props = {
   surah: number;
@@ -18,6 +19,8 @@ type Props = {
   bookmarked: boolean;
   notes: number;
   voices: number;
+  reciting?: boolean; // its recitation sounding
+  translit?: string; // the ayah transliterated, shown under its Arabic
   onAction: (a: AyahAction, v: Verse, anchor?: HTMLElement) => void;
   viewH: number;
   viewW: number;
@@ -38,6 +41,8 @@ export const AyahSection = memo(function AyahSection({
   bookmarked,
   notes,
   voices,
+  reciting,
+  translit,
   onAction,
   viewH,
   viewW,
@@ -63,7 +68,6 @@ export const AyahSection = memo(function AyahSection({
         .filter((x, i, all) => x.source !== tr.source && all.findIndex((y) => y.source === x.source) === i)
     : [];
   const { canon: arCanon, words } = arabicWords(v, settings.script);
-  const close = settings.arabicSpacing === "close"; // the words and lines set nearer, as a printed mushaf
 
   const ref = useRef<HTMLElement>(null);
   const oneRef = useRef(one);
@@ -96,7 +100,7 @@ export const AyahSection = memo(function AyahSection({
   const arPx = arabicSize(v, view, mobile, settings.arabicScale * (settings.readingMode === "arabic" ? 1.18 : 1));
   const trPx = translationSize(tr.canon, view, mobile, settings.transScale * (settings.readingMode === "translation" ? 1.15 : 1));
 
-  const sig = `${view}|${settings.readingMode}|${settings.translation}|${settings.also.join(",")}|${settings.script}|${settings.arabicSpacing}|${settings.arabicScale}|${settings.transScale}|${mobile}`;
+  const sig = `${view}|${settings.readingMode}|${settings.translation}|${settings.also.join(",")}|${settings.script}|${settings.arabicScale}|${settings.transScale}|${mobile}`;
   // (the line it decides on takes no room: so it is asked once the page is drawn, never while it is
   // being laid out, and only of the ayahs about the reader; one not laid out yet is asked again as it
   // is: shownTick)
@@ -222,7 +226,8 @@ export const AyahSection = memo(function AyahSection({
   const w = Math.max(220, fw * (one ? 0.8 : 0.88) - 50);
   const lines = (chars: number, px: number, k: number) => Math.max(1, Math.ceil((chars * px * k) / w));
   let hold = 0;
-  if (showAr) hold += lines(arCanon.length, arPx, close ? 0.2 : 0.215) * arPx * (close ? 1.85 : one ? 2.1 : 2);
+  if (showAr) hold += lines(arCanon.length, arPx, 0.2) * arPx * 1.85;
+  if (showAr && translit) hold += lines(translit.length, trPx * 0.9, 0.41) * trPx * 0.9 * 1.55 + 12;
   if (showTr) hold += lines(tr.canon.length * (tr.source === "qme" && !ctxShown ? 0.62 : 1), trPx, 0.41) * trPx * 1.6;
   for (const x of extras) hold += lines(x.canon.length, trPx * 0.94, 0.41) * trPx * 1.5 + 44;
   // and the number, the rule or gap between Arabic and English (the one-ayah view's full-height
@@ -256,9 +261,7 @@ export const AyahSection = memo(function AyahSection({
       />
     );
 
-  const actions = (
-    <Actions bookmarked={bookmarked} notes={notes} voices={voices} onAction={(a, el) => onAction(a, v, el)} />
-  );
+  const act = { bookmarked, notes, voices, reciting, onAction: (a: AyahAction, el: HTMLElement) => onAction(a, v, el) };
 
   const arabic = showAr && (
     <div
@@ -266,7 +269,7 @@ export const AyahSection = memo(function AyahSection({
       data-field="ar"
       data-key={key}
       className={cn("quran text-right text-[var(--box-fg)]", settings.script === "indopak" && "indopak", settings.wordHover && "word-hover")}
-      style={{ fontSize: arPx, lineHeight: close ? (one ? 1.88 : 1.82) : one ? 2.1 : 2 }}
+      style={{ fontSize: arPx, lineHeight: one ? 1.88 : 1.82 }}
       lang="ar"
     >
       {renderArabic(
@@ -277,6 +280,12 @@ export const AyahSection = memo(function AyahSection({
         v.sj || v.sw !== undefined ? (v.sw ?? words.length - 1) : undefined, // in both scripts: the Indo-Pak mushafs also mark 22:77
       )}
     </div>
+  );
+  // the ayah's sound in Latin letters, under its Arabic (Settings → Reading)
+  const latin = showAr && translit && (
+    <p className="translit-line mt-2 text-left font-serif italic text-[var(--box-muted)]" dir="ltr" style={{ fontSize: `calc(${Math.round(trPx * 0.9 * 10) / 10}px * var(--read-scale, 1))`, lineHeight: 1.55 }}>
+      {translit}
+    </p>
   );
 
   const translation = showTr && (
@@ -291,7 +300,7 @@ export const AyahSection = memo(function AyahSection({
         style={{ fontSize: `calc(${trPx}px * var(--read-scale, 1))`, lineHeight: 1.6 }}
       >
         {!showAr && (
-          <span className="label mb-3 block text-[var(--box-faint)] tabular-nums">
+          <span data-ayah-mark={key} className="label mb-3 block text-[var(--box-faint)] tabular-nums">
             {key}
             {fellBack ? ` · ${TRANSLATIONS.saheeh.name}` : ""}
           </span>
@@ -323,7 +332,7 @@ export const AyahSection = memo(function AyahSection({
   // the ayah's number under its Arabic, with the context switch beside it (one-ayah view)
   const divider = showAr && showTr && one && (
     <div className="label-sm my-6 flex items-center gap-3 text-[var(--box-faint)] md:my-7" dir="ltr">
-      <span className="pill border border-[var(--box-line)] px-1.5 py-[3px] tabular-nums text-[var(--box-muted)]">{key}</span>
+      <span data-ayah-mark={key} className="pill border border-[var(--box-line)] px-1.5 py-[3px] tabular-nums text-[var(--box-muted)]">{key}</span>
       <span className="h-px flex-1 bg-[var(--box-line)]" />
       {fellBack && <span className="normal-case tracking-normal">Saheeh International · this page of Quraan Made Easy is damaged in the source</span>}
     </div>
@@ -331,7 +340,7 @@ export const AyahSection = memo(function AyahSection({
   // the multiple-ayah view: the number at the top of each ayah, no rule between ayah and translation
   const number = !one && showAr && (
     <div className="label-sm mb-2 flex items-center gap-3 text-[var(--box-faint)]" dir="ltr">
-      <span className="tabular-nums text-[var(--box-muted)]">{key}</span>
+      <span data-ayah-mark={key} className="tabular-nums text-[var(--box-muted)]">{key}</span>
       {fellBack && showTr && <span className="normal-case tracking-normal">Saheeh International · this page of Quraan Made Easy is damaged in the source</span>}
     </div>
   );
@@ -351,6 +360,7 @@ export const AyahSection = memo(function AyahSection({
       <div data-inner className={one ? "relative" : undefined}>
         {number}
         {arabic}
+        {latin}
         {divider}
         {!one && showAr && showTr && <div className="h-4" />}
         {translation}
@@ -366,7 +376,14 @@ export const AyahSection = memo(function AyahSection({
       {/* the one-ayah view keeps one set of buttons still in the frame's corner (Read); here, halfway
           down the ayah and its translation (below the number, above the bottom padding) */}
       {!one && (
-        <div data-ayah-tools className={cn("absolute bottom-9 right-[30px] flex items-center md:right-3", showAr ? "top-12 md:top-14" : "top-7 md:top-9")}>{actions}</div>
+        <>
+          <div data-ayah-tools className={cn("absolute bottom-9 right-[30px] flex items-center md:right-3", showAr ? "top-12 md:top-14" : "top-7 md:top-9")}>
+            <Actions {...act} />
+          </div>
+          <div data-ayah-tools className="absolute bottom-1.5 right-[30px] md:right-3">
+            <OwnActions {...act} />
+          </div>
+        </>
       )}
     </section>
   );
@@ -491,12 +508,15 @@ function wordsOf(text: string, start: number) {
   return out;
 }
 
+/** An ayah's Arabic words (all of them, or the run of them on one printed line: `words` keeps each
+ *  word's own index, which the joins and the sajdah sign go by), with their highlights. */
 export function renderArabic(words: ReturnType<typeof arabicWords>["words"], hls: Highlight[], glue?: number[], sajdahAt?: number) {
   const out: ReactNode[] = [];
-  const sep = (i: number) => (glue?.includes(i) || i === words.length - 1 ? "" : " ");
+  // between two words: a space (none where the mushaf joins them)
+  const sep = (i: number) => (glue?.includes(words[i].i) || i === words.length - 1 ? "" : " ");
   // ۩ after the word of prostration, as the mushaf prints it
   const sajdah = (i: number) =>
-    i === sajdahAt ? (
+    words[i].i === sajdahAt ? (
       <span key={`sj${i}`} className="sajdah" title="Verse of prostration (sajdah): those reciting or hearing it prostrate" aria-label="sajdah">
         {" ۩"}
       </span>
@@ -547,7 +567,7 @@ export function renderArabic(words: ReturnType<typeof arabicWords>["words"], hls
   return out;
 }
 
-export function ContextToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+export function ContextToggle({ on, onToggle, compact }: { on: boolean; onToggle: () => void; compact?: boolean }) {
   return (
     <button
       type="button"
@@ -557,7 +577,7 @@ export function ContextToggle({ on, onToggle }: { on: boolean; onToggle: () => v
       aria-label={on ? "Hide the bracketed context" : "Show the bracketed context"}
       title={on ? "Hide the bracketed context" : "Show the bracketed context"}
     >
-      <span className="whitespace-nowrap">( context )</span>
+      <span className="whitespace-nowrap">{compact ? "( )" : "( context )"}</span>
       <span className={cn("pill relative inline-block h-[11px] w-[20px] border border-current transition-colors duration-300", on && "border-[var(--box-accent)]")}>
         <span
           className={cn(
@@ -570,33 +590,56 @@ export function ContextToggle({ on, onToggle }: { on: boolean; onToggle: () => v
   );
 }
 
-export function Actions({
-  bookmarked,
-  notes,
-  voices,
-  onAction,
-}: {
+type ActionProps = {
   bookmarked: boolean;
   notes: number;
   voices: number;
+  reciting?: boolean;
   onAction: (a: AyahAction, el: HTMLElement) => void;
-}) {
+};
+
+/**
+ * An ayah's own buttons, in two sets, none hidden in a menu. Beside it, a column for reading it: hear
+ * it recited, keep it (bookmark), its tafsir, another ayah brought up beside it. Along its foot, a row
+ * for one's own and for giving it on: a note, a voice note, its words copied, a picture of it. (In the
+ * one-ayah view the two meet in the frame's corner: Read.)
+ */
+export function Actions({ bookmarked, reciting, onAction }: ActionProps) {
   return (
     <div className="flex flex-col items-center gap-0.5 text-[var(--box-muted)]">
+      <IconBtn label={reciting ? "Pause the recitation" : "Recite this ayah"} onClick={(e) => onAction("recite", e)} active={reciting} sfx="none">
+        {reciting ? <Pause size={15} strokeWidth={1.5} /> : <Play size={15} strokeWidth={1.5} className="ml-px" />}
+      </IconBtn>
       <IconBtn label={bookmarked ? "Remove bookmark" : "Bookmark this ayah"} onClick={(e) => onAction("bookmark", e)} active={bookmarked}>
         {bookmarked ? <BookmarkCheck size={15} strokeWidth={1.5} /> : <Bookmark size={15} strokeWidth={1.5} />}
       </IconBtn>
-      <IconBtn label="Write a note on this ayah" onClick={(e) => onAction("note", e)} badge={notes || undefined}>
-        <StickyNote size={15} strokeWidth={1.5} />
+      <IconBtn label="Tafsir as-Sa'di on this ayah" onClick={(e) => onAction("tafsir", e)}>
+        <BookOpenText size={15} strokeWidth={1.5} />
       </IconBtn>
-      <IconBtn label="Record a voice note on this ayah" onClick={(e) => onAction("voice", e)} badge={voices || undefined}>
+      <IconBtn label="Bring up another ayah beside this one" onClick={(e) => onAction("window", e)}>
+        <PictureInPicture2 size={15} strokeWidth={1.5} />
+      </IconBtn>
+    </div>
+  );
+}
+
+/** The row: one's own (a note, a voice note) and giving it on (copied, a picture), a hairline between.
+ *  (Down the edge instead, under the column, in the one-ayah view: there the foot is the ayah's.) */
+export function OwnActions({ notes, voices, onAction, down }: ActionProps & { down?: boolean }) {
+  return (
+    <div className={cn("flex items-center gap-0.5 text-[var(--box-muted)]", down && "flex-col")}>
+      <IconBtn label="Write a note on this ayah" onClick={(e) => onAction("note", e)} badge={notes || undefined} small>
+        <NoteGlyph size={15} strokeWidth={1.5} />
+      </IconBtn>
+      <IconBtn label="Record a voice note on this ayah" onClick={(e) => onAction("voice", e)} badge={voices || undefined} small>
         <Mic size={15} strokeWidth={1.5} />
       </IconBtn>
-      <IconBtn label="Copy ayah" onClick={(e) => onAction("copy", e)}>
-        <Copy size={15} strokeWidth={1.5} />
+      <span className={cn("bg-[var(--box-line)]", down ? "my-1 h-px w-3.5" : "mx-1 h-3.5 w-px")} aria-hidden />
+      <IconBtn label="Copy this ayah" onClick={(e) => onAction("copy", e)} small>
+        <Copy size={14} strokeWidth={1.5} />
       </IconBtn>
-      <IconBtn label="Share ayah" onClick={(e) => onAction("share", e)}>
-        <Share2 size={15} strokeWidth={1.5} />
+      <IconBtn label="Share this ayah as an image" onClick={(e) => onAction("share", e)} small>
+        <Share2 size={14} strokeWidth={1.5} />
       </IconBtn>
     </div>
   );
@@ -608,21 +651,27 @@ function IconBtn({
   onClick,
   active,
   badge,
+  sfx,
+  small,
 }: {
   children: ReactNode;
   label: string;
   onClick: (el: HTMLElement) => void;
   active?: boolean;
   badge?: number;
+  sfx?: string;
+  small?: boolean;
 }) {
   return (
     <button
       type="button"
       title={label}
       aria-label={label}
+      data-sfx={sfx}
       onClick={(e) => onClick(e.currentTarget)}
       className={cn(
-        "relative flex h-8 w-8 items-center justify-center transition-colors hover:bg-[var(--box-hover)] hover:text-[var(--box-fg)]",
+        "relative flex items-center justify-center transition-colors hover:bg-[var(--box-hover)] hover:text-[var(--box-fg)]",
+        small ? "h-7 w-7" : "h-8 w-8",
         active && "text-[var(--box-accent)] hover:text-[var(--box-accent)]",
       )}
     >

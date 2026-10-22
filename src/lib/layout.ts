@@ -124,6 +124,18 @@ export function useViewport() {
 }
 
 /**
+ * Page one's foot, from the bottom of the screen (above a phone's home indicator): the themes' row
+ * (CoverThemes: themes), the strip of the search and Continue just above it (CoverStrip: its foot
+ * strip, its height h), and all the room they take, with a gap above (top).
+ */
+export function coverFoot(mobile: boolean) {
+  const themes = mobile ? 18 : 26;
+  const strip = themes + (mobile ? 54 : 60) + (mobile ? 10 : 12);
+  const h = mobile ? 44 : 46;
+  return { themes, strip, h, top: strip + h + (mobile ? 12 : 16) };
+}
+
+/**
  * The frame keeps the browser window's aspect ratio at a medium size.
  * The index (page two) and the reading page share one size, so the frame changes shape once, from
  * the cover to the index, and holds it into the surah; it rises a little to leave room for the ayah
@@ -131,13 +143,22 @@ export function useViewport() {
  * browser around it: the frame takes the whole screen but for the passage's theme under the status
  * bar and the slider above the home indicator.
  */
-export function frameRect(w: number, h: number, phase: "intro" | "select" | "read", app?: { standalone: boolean; insets: Insets }): Rect {
+export function frameRect(w: number, h: number, phase: "intro" | "select" | "read" | "seerah" | "video", app?: { standalone: boolean; insets: Insets }): Rect {
   const mobile = w < 768;
   const ins = app?.insets ?? { top: 0, right: 0, bottom: 0, left: 0 };
+  // the Seerah, and the making of a video: the frame all but the whole screen, a stage of its own
+  if (phase === "seerah" || phase === "video") {
+    if (mobile) return { left: 8, top: ins.top + 8, width: w - 16, height: h - ins.top - ins.bottom - 16 };
+    const m = Math.round(Math.min(36, Math.max(14, w * 0.02)));
+    return { left: m, top: m, width: w - 2 * m, height: h - 2 * m };
+  }
   if (phase === "intro") {
+    // (in the middle of what the strip and the themes along the foot leave above them)
+    const pad = mobile ? 16 : 32;
+    const room = h - coverFoot(mobile).top - ins.bottom - ins.top - pad;
     const width = mobile ? w - 20 : Math.round(Math.min(640, Math.max(460, w * 0.44)));
-    const height = Math.round(Math.min(h * (mobile ? 0.7 : 0.8), Math.max(mobile ? 420 : 430, h * (mobile ? 0.6 : 0.56))));
-    return { left: Math.round((w - width) / 2), top: Math.round((h - height + ins.top - ins.bottom) / 2), width, height };
+    const height = Math.round(Math.min(room, Math.max(mobile ? 380 : 400, h * (mobile ? 0.56 : 0.54))));
+    return { left: Math.round((w - width) / 2), top: Math.round(ins.top + pad + (room - height) / 2), width, height };
   }
   // the index and the reader: one size
   if (mobile && app?.standalone) {

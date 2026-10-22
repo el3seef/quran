@@ -55,6 +55,12 @@ export function SurahSummary({
     return out;
   }, [data]);
 
+  // the juz it lies in (or runs through)
+  const juz = useMemo(() => {
+    if (!data?.v.length) return null;
+    const a = data.v[0].j, b = data.v[data.v.length - 1].j;
+    return a === b ? `${a}` : `${a}–${b}`;
+  }, [data]);
   // the name's meaning as The Clear Quran gives it, its added words (˹…˺) read as part of it
   const meaning = (surah.ct || surah.en).replace(/[˹˺]/g, "");
   // (on a phone the picture and its details side by side, filling the width)
@@ -88,6 +94,12 @@ export function SurahSummary({
           <dt className="label text-[var(--box-faint)]">Ayat</dt>
           <dd className="mt-1 font-serif text-[16px] tabular-nums text-[var(--box-fg)]">{surah.count}</dd>
         </div>
+        {juz && (
+          <div>
+            <dt className="label text-[var(--box-faint)]">Juz</dt>
+            <dd className="mt-1 font-serif text-[16px] tabular-nums text-[var(--box-fg)]">{juz}</dd>
+          </div>
+        )}
       </dl>
     </motion.aside>
   );

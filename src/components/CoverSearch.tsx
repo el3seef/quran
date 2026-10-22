@@ -11,8 +11,9 @@ const TRY = ["18", "2:255", "Kahf", "الكهف", "mercy", "Juz 30"];
 /**
  * The cover's search, open: the field under the header, what it finds below it; a pick opens the
  * reader there. It is always in the page (unseen until it opens), so pressing the quiet field in
- * the frame's foot can bring the keyboard up at once onto a field already near the top: a phone's
- * keyboard then rises below it without pushing the page. The list ends above the keyboard.
+ * the strip below the frame (CoverStrip) can bring the keyboard up at once onto a field already
+ * near the top: a phone's keyboard then rises below it without pushing the page. The list ends
+ * above the keyboard.
  */
 export function CoverSearch({
   surahs,
@@ -158,25 +159,5 @@ export function CoverSearch({
         </AnimatePresence>
       </div>
     </div>
-  );
-}
-
-/** The cover's search at rest: a quiet field in the frame's foot. */
-export function CoverSearchField({ onOpen, hidden, short, className }: { onOpen: () => void; hidden: boolean; short?: boolean; className?: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      tabIndex={hidden ? -1 : 0}
-      aria-label="Search"
-      className={cn(
-        "group flex h-full w-full min-w-0 items-center justify-center gap-2 text-[var(--box-faint)] transition-[color,opacity] duration-300 hover:text-[var(--box-fg)]",
-        hidden && "pointer-events-none opacity-0",
-        className,
-      )}
-    >
-      <Search size={12.5} strokeWidth={1.7} className="shrink-0 transition-transform duration-300 group-hover:scale-110" />
-      <span className="label-sm whitespace-nowrap">{short ? "Search" : "Search a surah, an ayah, a word"}</span>
-    </button>
   );
 }

@@ -1,6 +1,6 @@
 import { animate, AnimatePresence, motion, useMotionValue, useMotionValueEvent } from "framer-motion";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown } from "lucide-react";
 import { IndexView, INDEX_VIEWS, type IndexKind } from "./IndexViews";
 import { HaloReel, type ReelGeometry } from "@/components/ui/halo-reel";
 import { AyahSlider } from "@/components/ui/slider";
@@ -36,6 +36,7 @@ export function Select({
   resume,
   onSettings,
   settingsOpen,
+  onBack,
 }: {
   surahs: Surah[];
   juz: Record<string, string>;
@@ -46,6 +47,7 @@ export function Select({
   resume?: { s: number; v: number } | null; // where the reader left off, last time
   onSettings: () => void;
   settingsOpen: boolean;
+  onBack: () => void; // back to page one (the Qur'an, the Seerah, a video of an ayah)
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -239,7 +241,17 @@ export function Select({
     >
       {/* top row (above the search and the ring: its index menu opens over them) */}
       <div className="absolute inset-x-0 top-0 z-40 flex items-start justify-between px-5 pt-4 md:px-7 md:pt-5">
-        <div className="relative">
+        <div className="relative flex items-start gap-2">
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Back to the first page"
+            title="Back to the first page"
+            className="-ml-2 -mt-[7px] flex h-9 w-9 shrink-0 items-center justify-center text-[var(--box-muted)] transition-colors hover:bg-[var(--box-hover)] hover:text-[var(--box-fg)]"
+          >
+            <ArrowLeft size={16} strokeWidth={1.6} />
+          </button>
+          <div className="relative">
           <ViewPicker view={view} onChange={setView} />
           {ring && resumable && !resumeAtFoot ? (
             <button type="button" onClick={() => onOpen({ surah: resume!.s, ayah: resume!.v })} className="label mt-1 flex items-center gap-1.5 text-[var(--box-muted)] transition-colors hover:text-[var(--box-fg)]">
@@ -248,6 +260,7 @@ export function Select({
           ) : (
             <div className="label mt-1 text-[var(--box-faint)]">{ring ? `[${pad3(front + 1)} / 114]` : INDEX_VIEWS.find((v) => v.id === view)?.line}</div>
           )}
+          </div>
         </div>
         {/* About and Settings set as on the cover (side by side, no gap but their own padding), the
             gear's edge on the same line as the search and the Open button under it */}

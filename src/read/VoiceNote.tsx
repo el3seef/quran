@@ -15,12 +15,14 @@ export const voiceKey = (id: string) => `voice:${id}`;
 export function VoiceRecorder({
   anchor,
   ayahKey,
+  label,
   quote,
   onClose,
   onSaved,
 }: {
   anchor: DOMRect | null;
   ayahKey: string;
+  label?: string; // what it is on, when not an ayah (a section of the Seerah)
   quote?: string; // recording on a highlighted passage
   onClose: () => void;
   onSaved: (audio: string, dur: number) => void;
@@ -122,7 +124,7 @@ export function VoiceRecorder({
           ref={box}
           key="rec"
           role="dialog"
-          aria-label={`Voice note on ayah ${ayahKey}`}
+          aria-label={`Voice note on ${label ?? `ayah ${ayahKey}`}`}
           className="theme-pop fixed z-[80] w-[264px] border border-[var(--box-line)] bg-[var(--box-bg-solid)] p-4 text-[var(--box-fg)] shadow-[0_24px_60px_-18px_rgba(0,0,0,0.75)]"
           style={{ left, top, translateY: above ? "-100%" : "0%" }}
           initial={{ opacity: 0, y: above ? 8 : -8, scale: 0.97 }}
@@ -131,7 +133,7 @@ export function VoiceRecorder({
           transition={{ duration: 0.25, ease: EASE_OUT }}
         >
           <div className="flex items-center justify-between">
-            <span className="label text-[var(--box-faint)]">Voice note · {ayahKey}</span>
+            <span className="label text-[var(--box-faint)]">Voice note · {label ?? ayahKey}</span>
             <button type="button" aria-label="Close" onClick={() => (stop(true), onClose())} className="flex h-6 w-6 items-center justify-center text-[var(--box-faint)] hover:text-[var(--box-fg)]">
               <X size={13} />
             </button>

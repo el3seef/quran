@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { Translation } from "./data";
-import type { ThemeId } from "./themes";
+import { DEFAULT_THEME, THEME_IDS, type ThemeId } from "./themes";
 
 export type HighlightColor = "yellow" | "green" | "pink" | "blue" | "orange";
 export const HIGHLIGHT_COLORS: HighlightColor[] = ["yellow", "green", "pink", "blue", "orange"];
@@ -14,7 +14,7 @@ export const HIGHLIGHT_HEX: Record<HighlightColor, string> = {
 };
 
 /** field: which text of the ayah the highlight lives in */
-export type HighlightField = "ar" | Translation;
+export type HighlightField = "ar" | Translation | "seerah"; // ("seerah": a section of the Seerah, key "seerah:<id>")
 
 export type Highlight = {
   id: string;
@@ -41,7 +41,33 @@ export type Note = {
   audio?: string; // IndexedDB key of a voice note
   dur?: number;
   docked?: "left" | "right" | "top" | "bottom" | null; // pushed off the screen edge
+  // stuck on an ayah brought up beside the page (its window): carried with it, at this offset (px)
+  win?: string;
+  wx?: number;
+  wy?: number;
+  label?: string; // what it is on, shown on it (a section of the Seerah); else "ayah <key>"
 };
+
+/**
+ * An ayah brought up beside the page (AyahWindows.tsx): it belongs to the ayah the reader was on
+ * (`key`), and shows whenever that ayah does; tied by a thread to that ayah, or to one of its words
+ * (`tie`); a note of its own written in it.
+ */
+export type AyahWindow = {
+  id: string;
+  key: string; // the ayah it belongs to ("67:3")
+  s: number; // the ayah it shows
+  a: number;
+  x: number; // its place, as a fraction of the viewport
+  y: number;
+  // a thread to the ayah, a word of it, or a spot beside it (where in the ayah's box, or the book's, as fractions of it)
+  tie?: { field: "ar" | "tr"; w: number } | { field: "ayah" } | { field: "spot"; fx: number; fy: number; book?: boolean } | null;
+  note?: string;
+  at: number;
+};
+
+/** The voices the Qur'an can be heard in (lib/recite.ts): every one has all 114 surahs. */
+export type ReciterId = "alafasy" | "dosari" | "abkar" | "salimi" | "khalaf";
 
 export type Recording = { id: string; at: number; dur: number };
 export type Reflection = { summary: string; lessons: string; updatedAt: number; recordings: Recording[] };
@@ -54,17 +80,17 @@ export type Settings = {
   arabicScale: number;
   transScale: number;
   wordHover: boolean;
-  translit: boolean;
-  boxTheme: "night" | "paper";
+  translit: boolean; // in a word's meaning
+  translitLine: boolean; // the whole ayah transliterated, under its Arabic
   theme: ThemeId; // the whole site's look (lib/themes.ts)
   grain: boolean;
   slider: boolean; // the ayah slider under the reading frame
   reduceMotion: boolean;
   view: 1 | 3;
   book: boolean; // Arabic only or a translation only, in the multiple-ayah view: the ayahs run on like a book
+  bookLines: boolean; // the Arabic as a book, line for line as the printed mushaf (its size fitted to them)
   bookThemes: boolean; // the translation read as a book: its paragraphs headed by their themes
   script: "uthmani" | "indopak"; // the Arabic: Madani (KFGQPC Hafs) or Indo-Pak
-  arabicSpacing: "airy" | "close"; // the Arabic's words and lines: as set out on a screen, or closer, as a printed mushaf
   // the site's sounds (lib/sound.ts): all of them, and each kind on its own
   sound: boolean;
   sounds: boolean; // the marker's sound when highlighting
@@ -74,9 +100,7 @@ export type Settings = {
   soundRecord: boolean; // a recording starting and stopping
   soundComplete: boolean; // a surah marked as completed
   soundSlider: boolean; // the ayah slider's fine click for each ayah
-  // Monochrome's own two choices: the page around the frame, and the frame itself
-  monoSky: "dark" | "light";
-  monoCard: "dark" | "light";
+  reciter: ReciterId;
 };
 
 /** A folder of bookmarks, named by the reader; every bookmark is also under All. */
@@ -103,8 +127,15 @@ type State = {
   bookmarks: Record<string, number>;
   highlights: Record<string, Highlight>;
   notes: Record<string, Note>;
+  windows: Record<string, AyahWindow>;
+  addWindow: (w: AyahWindow) => void;
+  updateWindow: (id: string, p: Partial<AyahWindow>) => void;
+  removeWindow: (id: string) => void;
   reflections: Record<number, Reflection>;
   last: { s: number; v: number } | null;
+  // the Seerah: the section it was left at, and which way its sections turn
+  seerah: { at: string | null; axis: "y" | "x" };
+  setSeerah: (p: Partial<{ at: string | null; axis: "y" | "x" }>) => void;
   set: (p: Partial<Settings>) => void;
   toggleBookmark: (key: string) => void;
   addHighlight: (h: Highlight) => void;
@@ -127,16 +158,16 @@ const DEFAULTS: Settings = {
   transScale: 1,
   wordHover: true,
   translit: true,
-  boxTheme: "night",
-  theme: "classic",
+  translitLine: false,
+  theme: DEFAULT_THEME,
   slider: true,
   grain: true,
   reduceMotion: false,
   view: 1,
   book: false,
+  bookLines: true,
   bookThemes: true,
   script: "uthmani",
-  arabicSpacing: "airy",
   sound: true,
   sounds: true,
   soundTaps: true,
@@ -145,8 +176,7 @@ const DEFAULTS: Settings = {
   soundRecord: true,
   soundComplete: true,
   soundSlider: true,
-  monoSky: "dark",
-  monoCard: "light",
+  reciter: "alafasy",
 };
 
 const emptyReflection = (): Reflection => ({ summary: "", lessons: "", updatedAt: 0, recordings: [] });
@@ -186,8 +216,28 @@ export const useStore = create<State>()(
       bookmarks: {},
       highlights: {},
       notes: {},
+      windows: {},
+      addWindow: (w) => set((s) => ({ windows: { ...s.windows, [w.id]: w } })),
+      updateWindow: (id, p) => set((s) => (s.windows[id] ? { windows: { ...s.windows, [id]: { ...s.windows[id], ...p } } } : s)),
+      removeWindow: (id) =>
+        set((s) => {
+          const windows = { ...s.windows };
+          const w = windows[id];
+          delete windows[id];
+          // the notes stuck on it stay where they were, free
+          const notes = Object.fromEntries(
+            Object.entries(s.notes).map(([k, n]) =>
+              n.win === id && w
+                ? [k, { ...n, win: undefined, wx: undefined, wy: undefined, x: w.x + (n.wx ?? 0) / window.innerWidth, y: w.y + (n.wy ?? 0) / window.innerHeight }]
+                : [k, n],
+            ),
+          );
+          return { windows, notes };
+        }),
       reflections: {},
       last: null,
+      seerah: { at: null, axis: "y" },
+      setSeerah: (p) => set((s) => ({ seerah: { ...s.seerah, ...p } })),
       set: (p) => set((s) => ({ settings: { ...s.settings, ...p } })),
       toggleBookmark: (key) =>
         set((s) => {
@@ -228,7 +278,7 @@ export const useStore = create<State>()(
           },
         })),
       setLast: (s, v) => set({ last: { s, v } }),
-      clearAll: () => set({ bookmarks: {}, inFolders: {}, folders: {}, highlights: {}, notes: {}, reflections: {}, last: null }),
+      clearAll: () => set({ bookmarks: {}, inFolders: {}, folders: {}, highlights: {}, notes: {}, windows: {}, reflections: {}, last: null }),
     }),
     {
       name: "quran-reader",
@@ -237,9 +287,13 @@ export const useStore = create<State>()(
       merge: (persisted, current) => {
         const p = { ...((persisted ?? {}) as Partial<State> & { stats?: unknown }) };
         delete p.stats; // the reading counts the site once kept are gone
-        const settings = { ...DEFAULTS, ...(p.settings ?? {}) };
-        // (the royal blue theme, once "Royal", is "Blue")
-        if ((settings.theme as string) === "royal") settings.theme = "blue";
+        const settings: Settings & Record<string, unknown> = { ...DEFAULTS, ...(p.settings ?? {}) };
+        // the themes the site no longer has (Classic, Monochrome, Atlas, Folio, Blue): its own, Sajjadah
+        if (!THEME_IDS.includes(settings.theme)) settings.theme = DEFAULT_THEME;
+        delete settings.boxTheme;
+        delete settings.monoSky;
+        delete settings.monoCard;
+        delete settings.arabicSpacing; // (the Arabic is always set as near as a mushaf sets it)
         return { ...current, ...p, settings };
       },
     },

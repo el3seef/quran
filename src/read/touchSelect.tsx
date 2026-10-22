@@ -191,6 +191,12 @@ export function useTouchSelect({
       e.preventDefault(); // taken: no menu
       stop?.();
 
+      // (the ayah's own text: as a book, its piece on any of the lines it runs over)
+      const sameAyah = (n: Node) => {
+        if (field.contains(n)) return true;
+        const f = (n.nodeType === Node.TEXT_NODE ? n.parentElement : (n as Element))?.closest<HTMLElement>("[data-field]");
+        return !!f && !!field.closest(".book") && f.dataset.key === field.dataset.key && f.dataset.field === field.dataset.field;
+      };
       const anchor = w;
       let focus = w;
       let px = x, py = y;
@@ -209,7 +215,7 @@ export function useTouchSelect({
       };
       const follow = () => {
         const c2 = caretAt(px, py);
-        if (c2 && field.contains(c2.node)) focus = wordAt(c2) ?? { start: c2, end: c2 };
+        if (c2 && sameAyah(c2.node)) focus = wordAt(c2) ?? { start: c2, end: c2 };
         if (!raf) raf = requestAnimationFrame(paint);
       };
       const move = (ev: TouchEvent) => {

@@ -9,32 +9,20 @@ import "@fontsource/amiri-quran";
 import "@fontsource/reem-kufi/400.css";
 import "@fontsource/reem-kufi/600.css";
 import "@fontsource-variable/caveat";
-// the themes' own type: Monochrome, Atlas (headings, labels), Folio, Lunar
-import "@fontsource-variable/bodoni-moda";
-import "@fontsource/ibm-plex-mono/400.css";
-import "@fontsource/ibm-plex-mono/500.css";
-import "@fontsource-variable/josefin-sans";
+// each theme's faces to read in and to name things with (index.css: each theme's lettering).
+// Lunar: Spectral to read, Cormorant's capitals for names, Jost for labels
 import "@fontsource-variable/jost";
-import "@fontsource-variable/fraunces/wght-italic.css";
-// each theme's faces to read in and to name things with (index.css: each theme's lettering)
-import "@fontsource-variable/alegreya";
-import "@fontsource-variable/alegreya/wght-italic.css";
 import "@fontsource-variable/cormorant-garamond";
 import "@fontsource-variable/cormorant-garamond/wght-italic.css";
-import "@fontsource-variable/space-grotesk";
-import "@fontsource/space-mono/400.css";
-import "@fontsource-variable/commissioner/flar.css";
-import "@fontsource-variable/brygada-1918";
-import "@fontsource-variable/brygada-1918/wght-italic.css";
-import "@fontsource-variable/fraunces/opsz.css";
 import "@fontsource/spectral/300.css";
 import "@fontsource/spectral/300-italic.css";
 import "@fontsource/spectral/400.css";
 import "@fontsource/spectral/500.css";
-// Blue: one geometric sans for everything (every mark of the transliterations its own)
-import "@fontsource-variable/lexend/wght.css";
+// Paper: Fraunces, labels typed in Courier Prime
+import "@fontsource-variable/fraunces/opsz.css";
+import "@fontsource-variable/fraunces/wght-italic.css";
 import "@fontsource/courier-prime/400.css";
-// Crimson: Crimson Pro to read, Amiri's Latin (made beside its Arabic) for the names
+// Sajjadah: Crimson Pro to read, Amiri's Latin (made beside its Arabic) for the names
 import "@fontsource-variable/crimson-pro/wght.css";
 import "@fontsource-variable/crimson-pro/wght-italic.css";
 import "@fontsource/amiri/latin-400.css";

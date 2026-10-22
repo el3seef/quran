@@ -13,6 +13,7 @@ import { TRANSLATIONS, loadSurah, translationText } from "@/lib/data";
 import { EASE_OUT, cn } from "@/lib/utils";
 import { Segmented } from "@/components/ui/segmented";
 import { nameMarks } from "@/lib/names";
+import { RECITERS } from "@/lib/recite";
 
 type Tab = "reading" | "translation" | "display" | "sound" | "saved" | "progress" | "guide";
 const TABS: { id: Tab; name: string }[] = [
@@ -148,6 +149,14 @@ function ReadingTab({ s, set }: TabProps) {
           set={(v) => set({ bookThemes: v })}
         />
       )}
+      {s.readingMode === "arabic" && s.book && (
+        <Toggle
+          label="Lines as the printed mushaf"
+          hint="Each line as the Madani mushaf prints it, the size fitted to them. Choosing an Arabic size of your own lets the lines run free."
+          on={s.bookLines}
+          set={(v) => set({ bookLines: v })}
+        />
+      )}
       <Row label="View">
         <Segmented value={String(s.view) as "1" | "3"} onChange={(v) => set({ view: Number(v) as 1 | 3 })} options={[["1", "One ayah"], ["3", "Multiple ayahs"]]} />
       </Row>
@@ -161,16 +170,26 @@ function ReadingTab({ s, set }: TabProps) {
           ]}
         />
       </Row>
-      <Row label="Arabic spacing" hint="Close sets the words and lines nearer together, as a printed mushaf does">
-        <Segmented
-          value={s.arabicSpacing}
-          onChange={(v) => set({ arabicSpacing: v })}
-          options={[
-            ["airy", "Airy"],
-            ["close", "Close"],
-          ]}
-        />
+      <Row label="Reciter" hint="Heard from the play button beside each ayah">
+        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Reciter">
+          {RECITERS.map((x) => (
+            <button
+              key={x.id}
+              type="button"
+              role="radio"
+              aria-checked={s.reciter === x.id}
+              onClick={() => set({ reciter: x.id })}
+              className={cn(
+                "pill border px-3 py-1.5 text-[13px] transition-colors",
+                s.reciter === x.id ? "border-[var(--box-fg)] text-[var(--box-fg)]" : "border-[var(--box-line)] text-[var(--box-muted)] hover:border-[var(--box-muted)] hover:text-[var(--box-fg)]",
+              )}
+            >
+              {x.name}
+            </button>
+          ))}
+        </div>
       </Row>
+      <Toggle label="Transliteration" hint="Each ayah in Latin letters, under its Arabic" on={s.translitLine} set={(v) => set({ translitLine: v })} />
       <Toggle label="Word meanings on hover" on={s.wordHover} set={(v) => set({ wordHover: v })} />
       <Toggle label="Transliteration in word meanings" on={s.translit} set={(v) => set({ translit: v })} />
       <Toggle label="Context in Quraan Made Easy" hint="The explanations in brackets" on={s.showContext} set={(v) => set({ showContext: v })} />
@@ -261,7 +280,7 @@ function DisplayTab({ s, set }: TabProps) {
         <Stepper value={s.transScale} onChange={(v) => set({ transScale: v })} />
       </Row>
       <Row label="Theme">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-3 gap-2">
           {THEMES.map((t) => (
             <button
               key={t.id}
@@ -284,21 +303,6 @@ function DisplayTab({ s, set }: TabProps) {
           ))}
         </div>
       </Row>
-      {s.theme === "classic" && (
-        <Row label="Frame">
-          <Segmented value={s.boxTheme} onChange={(v) => set({ boxTheme: v })} options={[["night", "Night"], ["paper", "Paper"]]} />
-        </Row>
-      )}
-      {s.theme === "mono" && (
-        <>
-          <Row label="Background">
-            <Segmented value={s.monoSky} onChange={(v) => set({ monoSky: v })} options={[["dark", "Dark"], ["light", "Light"]]} />
-          </Row>
-          <Row label="Frame">
-            <Segmented value={s.monoCard} onChange={(v) => set({ monoCard: v })} options={[["light", "Light"], ["dark", "Dark"]]} />
-          </Row>
-        </>
-      )}
       <Toggle label="Ayah slider" on={s.slider} set={(v) => set({ slider: v })} />
       <Toggle label="Film grain" on={s.grain} set={(v) => set({ grain: v })} />
       <Toggle label="Reduce motion" on={s.reduceMotion} set={(v) => set({ reduceMotion: v })} />
@@ -364,20 +368,21 @@ function SavedTab({ surahs, onGo }: { surahs: Surah[]; onGo: (s: number, a: numb
         return { id: k, surah: s, ayah: a, ref: k, text: `Ayah ${a}`, style: "serif", sub: names.length ? names.join(" · ") : new Date(at).toLocaleDateString() };
       }),
     highlights: Object.values(highlights)
+      .filter((h) => !h.key.startsWith("seerah:"))
       .sort((a, b) => b.at - a.at)
       .map((h) => {
         const [s, a] = split(h.key);
         return { id: h.id, surah: s, ayah: a, ref: h.key, text: h.text, style: h.field === "ar" ? "arabic" : "serif", swatch: h.color };
       }),
     notes: Object.values(notes)
-      .filter((n) => n.kind !== "voice")
+      .filter((n) => n.kind !== "voice" && !n.key.startsWith("seerah:"))
       .sort((a, b) => b.at - a.at)
       .map((n) => {
         const [s, a] = split(n.key);
         return { id: n.id, surah: s, ayah: a, ref: n.key, text: n.text || (n.quote ? `“${n.quote}”` : "Empty note"), style: "hand" };
       }),
     voice: Object.values(notes)
-      .filter((n) => n.kind === "voice")
+      .filter((n) => n.kind === "voice" && !n.key.startsWith("seerah:"))
       .sort((a, b) => b.at - a.at)
       .map((n) => {
         const [s, a] = split(n.key);

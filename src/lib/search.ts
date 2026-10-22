@@ -264,64 +264,148 @@ export function findSurahs(surahs: Surah[], q: string, limit = 6) {
   return list.slice(0, limit);
 }
 
-/** Instant results: references, surah names, juz. */
+/* ── what was meant: a reference however it is written ──────────────
+   2:255, 2-255, 2 - 255, 2.255, 2/255, 2,255, 2 255, 2v255, (2:255), Q2:255, s2a255, surah 2 ayah 255,
+   chapter 2 verse 255, baqara 255, al-baqarah:255, the cow 255, ayah 255 of baqara, 255 baqara,
+   baqara 2:255, البقرة ٢٥٥, سورة البقرة آية 255; an ayah known by its name (ayat al-kursi); a
+   range (2:255-257) opens at its first ayah. The words around a reference that only say what it is
+   (surah, ayah, verse, of…) are passed over. */
+const FILLER = new Set(["surah", "sura", "surat", "soorah", "surahs", "chapter", "chap", "ch", "c", "s", "ayah", "ayat", "aya", "ayaat", "ayahs", "ayas", "ayyah", "verse", "verses", "vers", "v", "vs", "vv", "a", "no", "nr", "number", "num", "of", "in", "from", "to", "and", "q", "quran", "qur'an", "quraan", "koran", "kuran", "سورة", "سوره", "آية", "اية", "الآية", "الاية", "آيه", "ايه", "الايه", "رقم", "من"]);
+const JUZ = /^(juz|juzz|juza|juz'|jz|para|parah|part|sipara|siparah|j|hizb|جزء|الجزء)$/;
+
+/** ayat known by name, said many ways */
+const NAMED: { s: number; a: number; names: string[] }[] = [
+  { s: 2, a: 255, names: ["ayat al kursi", "ayatul kursi", "ayat ul kursi", "ayatal kursi", "ayat kursi", "ayatulkursi", "kursi", "throne verse", "verse of the throne", "the throne verse", "آية الكرسي"] },
+  { s: 2, a: 285, names: ["amanar rasul", "aamanar rasool", "amana rasul", "last two ayat of baqarah", "last two verses of baqarah", "last 2 ayat of baqarah", "last 2 verses of baqarah", "end of baqarah", "خواتيم البقرة"] },
+  { s: 24, a: 35, names: ["ayat an nur", "ayatun nur", "ayat al nur", "light verse", "verse of light", "the light verse", "آية النور"] },
+  { s: 2, a: 282, names: ["ayat ad dayn", "verse of debt", "debt verse", "longest ayah", "آية الدين"] },
+  { s: 21, a: 87, names: ["dua of yunus", "dua yunus", "dua of jonah", "dua of the fish", "ayat al karima", "ayat e karima", "ayate karima"] },
+  { s: 20, a: 25, names: ["dua of musa", "dua musa", "rabbish rahli sadri", "rabbishrahli sadri"] },
+  { s: 2, a: 201, names: ["rabbana atina", "rabbana aatina", "rabbana atina fid dunya"] },
+  { s: 20, a: 114, names: ["rabbi zidni ilma", "rabbi zidni ilman"] },
+  { s: 3, a: 173, names: ["hasbunallah", "hasbunallahu wa nimal wakil", "hasbuna allah"] },
+  { s: 2, a: 156, names: ["inna lillahi", "inna lillahi wa inna ilaihi rajiun", "innalillahi"] },
+  { s: 1, a: 1, names: ["bismillah", "basmala", "basmalah"] },
+];
+const squash = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z\u0600-\u06ff]/g, "").replace(/(.)\1+/g, "$1").replace(/ee/g, "i").replace(/oo/g, "u");
+let named: Map<string, { s: number; a: number }> | null = null;
+function namedAyah(q: string) {
+  named ??= new Map(NAMED.flatMap((n) => n.names.map((x) => [squash(normArabic(x)), { s: n.s, a: n.a }] as const)));
+  return named.get(squash(normArabic(q)));
+}
+
+/** Instant results: references, surah names, juz, ayat known by name. */
 export function searchDirect(surahs: Surah[], juz: Record<string, string>, raw: string): Result[] {
-  const q = fromArabicDigits(raw).trim().replace(/\s+/g, " ");
+  const q = fromArabicDigits(raw)
+    .toLowerCase()
+    .replace(/[[\](){}"“”«»<>]/g, " ")
+    .replace(/[‐‑‒–—―]/g, "-")
+    .trim()
+    .replace(/\s+/g, " ");
   if (!q) return [];
   const byN = (n: number) => surahs[n - 1];
   const out: Result[] = [];
+  const ayah = (s: number, a: number, score: number) => {
+    const sur = byN(s);
+    if (sur && a >= 1 && a <= sur.count && !out.some((r) => r.kind === "ayah" && r.surah.n === s && r.ayah === a)) out.push({ kind: "ayah", surah: sur, ayah: a, score });
+  };
+  const surah = (s: number, score: number) => {
+    const sur = byN(s);
+    if (sur && !out.some((r) => r.kind === "surah" && r.surah.n === s)) out.push({ kind: "surah", surah: sur, score });
+  };
+  const juzAt = (n: number, score: number) => {
+    if (n < 1 || n > 30 || !juz[String(n)]) return;
+    const [js, ja] = juz[String(n)].split(":").map(Number);
+    out.push({ kind: "juz", juz: n, surah: byN(js), ayah: ja, score });
+  };
 
-  // 2:255 · 2 255 · 2.255 · 2/255 · 2-255
-  let m = q.match(/^(\d{1,3})\s*[:.\/\-\s,]\s*(\d{1,3})(?:\s*-\s*\d{1,3})?$/);
-  if (m) {
-    const s = +m[1], a = +m[2];
-    if (s >= 1 && s <= 114) {
-      const sur = byN(s);
-      if (a >= 1 && a <= sur.count) out.push({ kind: "ayah", surah: sur, ayah: a, score: 100 });
-      out.push({ kind: "surah", surah: sur, score: 70 });
-    }
-    return out;
-  }
-  // 18
-  m = q.match(/^(\d{1,3})$/);
-  if (m) {
-    const s = +m[1];
-    if (s >= 1 && s <= 114) out.push({ kind: "surah", surah: byN(s), score: 100 });
-    // also offer juz of that number
-    if (s >= 1 && s <= 30) {
-      const [js, ja] = juz[String(s)].split(":").map(Number);
-      out.push({ kind: "juz", juz: s, surah: byN(js), ayah: ja, score: 40 });
-    }
-    return out;
-  }
-  // juz 30 · para 30 · j30
-  m = q.match(/^(?:juz|juzz|jz|para|part|j|sipara|جزء)\s*(\d{1,2})$/i);
-  if (m) {
-    const n = +m[1];
-    if (n >= 1 && n <= 30) {
-      const [js, ja] = juz[String(n)].split(":").map(Number);
-      out.push({ kind: "juz", juz: n, surah: byN(js), ayah: ja, score: 100 });
-    }
-    return out;
-  }
-  // kahf 10 · baqarah:255 · the cow 255 · الكهف ١٠
-  m = q.match(/^(.+?)\s*[:\s,.]\s*(\d{1,3})$/);
-  if (m) {
-    const hits = findSurahs(surahs, m[1], 3);
-    const a = +m[2];
-    for (const h of hits) {
-      if (a >= 1 && a <= h.surah.count) out.push({ kind: "ayah", surah: h.surah, ayah: a, score: h.score });
-    }
+  // an ayah known by its name
+  const known = namedAyah(q);
+  if (known) ayah(known.s, known.a, 100);
+
+  const nums = [...q.matchAll(/\d{1,3}/g)].map((m) => Number(m[0]));
+  const words = q
+    .replace(/\d+/g, " ")
+    .replace(/[:.\/,;_#*+=|~-]/g, " ")
+    .split(" ")
+    .filter(Boolean);
+  const named2 = words.filter((w) => !FILLER.has(w));
+
+  // a juz: juz 30, para 1, j30, juz amma
+  if (words.some((w) => JUZ.test(w))) {
+    const rest = named2.filter((w) => !JUZ.test(w));
+    if (nums.length) juzAt(nums[0], 100);
+    // (by the surah it opens with: juz amma, juz tabarak)
+    else if (rest.length)
+      for (const h of findSurahs(surahs, rest.join(" "), 2))
+        for (const [n, at] of Object.entries(juz)) if (at === `${h.surah.n}:1`) juzAt(Number(n), 90);
     if (out.length) return out;
   }
-  for (const h of findSurahs(surahs, q)) out.push({ kind: "surah", surah: h.surah, score: h.score });
-  return out;
+
+  // numbers alone: 18 (a surah, or a juz), 2:255 and every other way of writing it
+  if (!named2.length && nums.length) {
+    if (nums.length === 1) {
+      surah(nums[0], 100);
+      if (nums[0] <= 30) juzAt(nums[0], 40);
+      return out;
+    }
+    const [s, a] = nums;
+    ayah(s, a, 100);
+    if (byN(s)) surah(s, 70);
+    return out;
+  }
+
+  // a surah by name, and an ayah of it: baqara 255, ayah 255 of baqara, البقرة ٢٥٥, baqara 2:255
+  if (named2.length) {
+    const hits = findSurahs(surahs, named2.join(" "), 3);
+    if (nums.length) {
+      for (const h of hits) {
+        // (the surah's own number given too: the other is the ayah)
+        const a = nums.length >= 2 && nums[0] === h.surah.n ? nums[1] : nums[0];
+        ayah(h.surah.n, a, h.score);
+      }
+      for (const h of hits) surah(h.surah.n, h.score - 30);
+      if (out.length) return out;
+    }
+    for (const h of findSurahs(surahs, named2.join(" "))) surah(h.surah.n, h.score);
+    // (the name alone, as typed, too: "an nas", "al-qadr")
+    if (!out.some((r) => r.kind === "surah")) for (const h of findSurahs(surahs, q)) surah(h.surah.n, h.score);
+  }
+  return out.sort((x, y) => y.score - x.score);
 }
 
 type IndexRow = { key: string; en: string; ar: string; raw: [string, string, string, string] };
 let rows: IndexRow[] | null = null;
 
-/** Full-text search across Saheeh International, The Clear Quran and the Arabic. */
+/** A transliteration by its sounds alone: its consonants, the ways of writing one sound made one (so
+ *  "rabbana atina" meets "Rabbanaaa aatinaa", "alladhi" meets "allazee"). */
+function soundSkeleton(s: string) {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z]/g, "")
+    .replace(/dh/g, "z")
+    .replace(/th/g, "s")
+    .replace(/kh/g, "k")
+    .replace(/gh/g, "g")
+    .replace(/sh/g, "s")
+    .replace(/ph/g, "f")
+    .replace(/q/g, "k")
+    .replace(/[aeiouyw]/g, "")
+    .replace(/(.)\1+/g, "$1");
+}
+let tlRows: { key: string; text: string; sk: string }[] | null = null;
+async function translitRows() {
+  if (!tlRows) {
+    const all: [string, string][] = await fetch(`${import.meta.env.BASE_URL}data/translit.json`).then((r) => r.json());
+    tlRows = all.map(([key, text]) => ({ key, text, sk: soundSkeleton(text) }));
+  }
+  return tlRows;
+}
+
+/** Full-text search across Saheeh International, The Clear Quran and the Arabic (and, for words
+ *  that sound like the Arabic written in Latin letters, the transliteration). */
 export async function searchText(surahs: Surah[], raw: string, limit = 40): Promise<Result[]> {
   const q = raw.trim();
   if (q.length < 3 || /^\d/.test(q)) return [];
@@ -361,6 +445,18 @@ export async function searchText(surahs: Surah[], raw: string, limit = 40): Prom
       }
     }
     results.push({ kind: "text", surah: surahs[s - 1], ayah: a, snippet, match, score });
+  }
+  // the Arabic as it sounds, written in Latin letters
+  const qs = arabic ? "" : soundSkeleton(q);
+  if (qs.length >= 5) {
+    const tl = await translitRows().catch(() => []);
+    const seen = new Set(results.map((x) => (x.kind === "text" ? `${x.surah.n}:${x.ayah}` : "")));
+    for (const row of tl) {
+      if (seen.has(row.key) || !row.sk.includes(qs)) continue;
+      const [s, a] = row.key.split(":").map(Number);
+      const snippet = row.text.length > 150 ? row.text.slice(0, 150) + "…" : row.text;
+      results.push({ kind: "text", surah: surahs[s - 1], ayah: a, snippet, match: [], score: 2 + qs.length / 3 - row.sk.indexOf(qs) / 400 });
+    }
   }
   return results.sort((a, b) => b.score - a.score).slice(0, limit);
 }

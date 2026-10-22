@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { SKY } from "@/lib/motion";
 
-/** Crimson: a carpet's red field and its faint gold lattice, held still (index.css .crimson-sky) */
+/** Sajjadah (Crimson): a carpet's red field and its faint gold lattice, held still (index.css .crimson-sky) */
 export function CrimsonSky({ className }: { className?: string }) {
   return <div className={`crimson-sky ${className ?? ""}`} />;
 }
@@ -32,66 +32,6 @@ float fbm(vec2 p) {
 float grain(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
 float iso(float k) { float f = abs(fract(k + 0.5) - 0.5); float w = max(FW(k) * 1.2, 0.004); return 1.0 - smoothstep(0.0, w, f); }
 `;
-
-/** Atlas: a dim globe on near-black, its terrain glowing like a heat map, under thin contour lines. */
-const ATLAS = `
-void main() {
-  vec2 p = (gl_FragCoord.xy - 0.5 * r) / min(r.x, r.y);
-  float tt = t * 0.012;
-  // on a tall phone the frame covers the middle, so the globe sits lower (round the slider) and
-  // the terrain beyond it glows a little more, for the sky to show in the strips left above and below
-  float port = smoothstep(1.1, 1.6, r.y / r.x);
-  vec2 c = mix(vec2(0.3, 0.04), vec2(0.14, -0.62), port);
-  float d = length(p - c);
-  float R = mix(0.66, 0.6, port);
-  float inside = 1.0 - smoothstep(R - 0.03, R + 0.03, d);
-  float e = fbm(p * 1.6 + vec2(tt, -tt * 0.6));
-  float e2 = fbm(p * 0.95 - vec2(tt * 0.7, tt * 0.3) + 7.0);
-  float e3 = fbm(p * 1.25 + vec2(-tt, tt) + 3.1);
-  vec3 heat = vec3(1.0, 0.37, 0.19) * smoothstep(0.58, 0.76, e2) * 0.9
-            + vec3(0.42, 0.62, 0.46) * smoothstep(0.54, 0.72, e3) * 0.6
-            + vec3(0.25, 0.33, 0.55) * smoothstep(0.36, 0.62, e) * 0.5;
-  heat *= mix(mix(0.18, 0.42, port), 1.0, inside);
-  vec3 col = vec3(0.024) + heat * mix(0.7, 0.82, port) + vec3(0.012) * inside;
-  float limb = (d - R) * 26.0;
-  col += vec3(0.55) * exp(-limb * limb) * 0.07; // (squared by hand: pow() of a negative is undefined)
-  col += vec3(0.92) * iso(e * 18.0) * 0.07;
-  col += vec3(0.92) * iso(e * 4.5) * 0.06;
-  col *= 1.0 - mix(0.5, 0.28, port) * smoothstep(0.45, 1.25, length(p));
-  col += (grain(gl_FragCoord.xy + floor(t * 12.0) * 7.0) - 0.5) * 0.055;
-  gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
-}`;
-
-/** Folio: sand paper in afternoon light, sunlight through a window's blinds falling across it, the
- * shadows of leaves outside moving in it. */
-const FOLIO = `
-void main() {
-  vec2 p = (gl_FragCoord.xy - 0.5 * r) / min(r.x, r.y);
-  float tt = t * 0.11;
-  vec3 paper = vec3(0.835, 0.765, 0.6);
-  // the paper's fibres and the weave of its surface
-  float fib = fbm(vec2(p.x * 46.0, p.y * 5.0)) * 0.045 + fbm(p * 14.0) * 0.035;
-  vec3 col = paper - vec3(fib) * vec3(1.0, 0.95, 0.85);
-  // the window's light, slanting in, its blinds across it, swaying a little in a breeze
-  float a = -0.42;
-  vec2 q = mat2(cos(a), -sin(a), sin(a), cos(a)) * (p - vec2(0.18, 0.02));
-  q += vec2(sin(tt * 1.3) * 0.018 + sin(tt * 3.1) * 0.005, cos(tt * 0.9) * 0.012);
-  float win = smoothstep(0.62, 0.42, abs(q.x)) * smoothstep(0.95, 0.6, abs(q.y));
-  float slats = smoothstep(0.32, 0.62, 0.5 + 0.5 * sin(q.y * 34.0 + sin(tt) * 0.4));
-  float frame = smoothstep(0.012, 0.0, abs(q.x)) * win; // the window's middle bar
-  // leaves outside the window: their shadows drift and shiver, a finer branch moving faster
-  float gust = sin(tt * 2.3) * 0.22 + sin(tt * 5.7) * 0.06;
-  float leaf = smoothstep(0.46, 0.66, fbm(q * 3.2 + vec2(tt * 1.4 + gust, -tt * 0.6)));
-  float twig = smoothstep(0.52, 0.7, fbm(q * 7.5 + vec2(-tt * 2.2, tt * 1.0 + gust * 0.6))) * 0.35;
-  // now and then a cloud passes and the light dims, gently
-  float cloud = 0.9 + 0.1 * smoothstep(-0.7, 0.7, sin(t * 0.045 + 3.0 * fbm(vec2(t * 0.013, 1.7))));
-  float light = win * (0.45 + 0.55 * slats) * (1.0 - 0.55 * leaf) * (1.0 - twig) * (1.0 - frame) * cloud;
-  col *= 0.8 + 0.3 * light;
-  col += vec3(1.0, 0.86, 0.6) * light * 0.07;
-  col *= 1.0 - 0.32 * smoothstep(0.55, 1.35, length(p));
-  col += (grain(gl_FragCoord.xy + floor(t * 10.0) * 5.0) - 0.5) * 0.05;
-  gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
-}`;
 
 /** Paper: a sheet of grey paper on the desk, once crumpled and pressed flat again: its creases
  * catch a soft light that drifts a little, with a long fold or two across it. */
@@ -173,43 +113,6 @@ void main() {
   col += (grain(gl_FragCoord.xy + floor(t * 12.0) * 7.0) - 0.5) * 0.04;
   gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }`;
-
-/** Blue: deep currents. The night's blues (#050d2e, #0c225c) and black, a field folded over itself
- *  and drifting slowly, as ink turns in water; fine royal blue lines (#4169E1) tracing its currents
- *  where they run bright, royal blue itself only at the crests; black at the edges. */
-const BLUE = `
-float fb3(vec2 p) {
-  float v = 0.0, a = 0.5;
-  for (int i = 0; i < 3; i++) { v += a * n(p); p = p * 2.03 + vec2(17.0, 9.2); a *= 0.5; }
-  return v / 0.875;
-}
-vec3 tone(float v) {
-  vec3 c = mix(vec3(0.0, 0.002, 0.008), vec3(0.020, 0.051, 0.180), smoothstep(0.18, 0.46, v));
-  c = mix(c, vec3(0.047, 0.133, 0.361), smoothstep(0.46, 0.7, v));
-  c = mix(c, vec3(0.255, 0.412, 0.882), smoothstep(0.68, 0.92, v) * 0.75);
-  return c;
-}
-void main() {
-  float m = min(r.x, r.y);
-  vec2 p = (gl_FragCoord.xy - 0.5 * r) / m;
-  float tt = t * 0.022;
-  // the field, folded twice over itself, each fold drifting its own way
-  vec2 q = vec2(fb3(p * 1.05 + vec2(0.0, tt)), fb3(p * 1.05 + vec2(5.2, 1.3) - vec2(tt * 0.8, 0.0)));
-  vec2 w = vec2(fb3(p * 1.2 + 3.2 * q + vec2(1.7, 9.2) + tt * 0.5), fb3(p * 1.2 + 3.2 * q + vec2(8.3, 2.8) - tt * 0.45));
-  float v = fbm(p * 0.85 + 3.0 * w + vec2(0.0, -tt * 0.3));
-  // a little more light toward the top, as a night sky has
-  v = clamp((v - 0.5) * 1.25 + 0.5, 0.0, 1.0) * (0.86 + 0.26 * smoothstep(-0.9, 0.8, p.y));
-  vec3 col = tone(v);
-  // the currents: fine lines along the field, brighter where it runs bright
-  float lines = iso(v * 13.0);
-  col += vec3(0.255, 0.412, 0.882) * lines * (0.06 + 0.3 * smoothstep(0.42, 0.78, v));
-  // into black at the edges
-  float e = length(p * vec2(0.75, 1.0));
-  col *= 1.0 - 0.6 * smoothstep(0.45, 1.2, e);
-  col += (grain(gl_FragCoord.xy) - 0.5) * 0.016;
-  gl_FragColor = vec4(col, 1.0);
-}
-`;
 
 /** `still`: hold the sky where it is (focus mode, when the frame covers the whole screen and the
  *  sky would only be drawn unseen); it takes up again from the same moment. */
@@ -304,8 +207,5 @@ function ShaderSky({ main, className, still }: { main: string; className?: strin
 }
 
 type SkyProps = { className?: string; still?: boolean };
-export const AtlasSky = (p: SkyProps) => <ShaderSky main={ATLAS} {...p} />;
-export const FolioSky = (p: SkyProps) => <ShaderSky main={FOLIO} {...p} />;
 export const LunarSky = (p: SkyProps) => <ShaderSky main={LUNAR} {...p} />;
-export const BlueSky = (p: SkyProps) => <ShaderSky main={BLUE} {...p} />;
 export const PaperSky = (p: SkyProps) => <ShaderSky main={PAPER} {...p} />;

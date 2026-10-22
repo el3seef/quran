@@ -28,6 +28,8 @@ export type Pager = {
   step: (dir: 1 | -1, small: boolean) => void;
   /** whatever is moving the page here, stopped (the page about to move it itself) */
   stop: () => void;
+  /** to a place the page takes the reader itself (the recitation followed), glided there */
+  to: (top: number) => void;
   destroy: () => void;
 };
 
@@ -299,6 +301,7 @@ export function createPager(
   return {
     step,
     stop,
+    to: (top: number) => glide(() => top),
     destroy: () => {
       cancelAnimationFrame(first);
       stop();

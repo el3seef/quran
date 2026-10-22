@@ -60,9 +60,10 @@ export function arabicWords(v: Verse, script: "uthmani" | "indopak" = "uthmani")
 }
 
 /** Arabic highlights: the whole words a selection touches. */
-export function rangeToArabicWords(range: Range, field: HTMLElement, words: Word[]): [number, number] | null {
+export function rangeToArabicWords(range: Range, field: HTMLElement | HTMLElement[], words: Word[]): [number, number] | null {
   let first = Infinity, last = -1;
-  field.querySelectorAll<HTMLElement>(".word[data-w]").forEach((el) => {
+  // (the ayah's field, or each of its pieces: the book sets an ayah over several printed lines)
+  (Array.isArray(field) ? field : [field]).flatMap((f) => [...f.querySelectorAll<HTMLElement>(".word[data-w]")]).forEach((el) => {
     if (!range.intersectsNode(el)) return;
     const i = Number(el.dataset.w);
     first = Math.min(first, i);

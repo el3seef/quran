@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { get } from "idb-keyval";
-import { ArrowLeft, Bookmark, Check, Mic, NotebookPen, Pause, Play, StickyNote } from "lucide-react";
+import { ArrowLeft, Bookmark, Check, Mic, NotebookPen, Pause, Play } from "lucide-react";
 import type { Surah } from "@/lib/data";
 import { pad3 } from "@/lib/data";
 import { HIGHLIGHT_COLORS, HIGHLIGHT_HEX, useStore, type Goal, type Highlight, type Note, type Reflection } from "@/lib/store";
@@ -9,7 +9,7 @@ import { sfx } from "@/lib/sound";
 import { EASE_OUT, cn } from "@/lib/utils";
 import { Segmented } from "@/components/ui/segmented";
 import { voiceKey } from "./VoiceNote";
-import { QuillGlyph } from "@/components/glyphs";
+import { BrainGlyph, NoteGlyph } from "@/components/glyphs";
 import { ayn, nameMarks } from "@/lib/names";
 
 /**
@@ -355,10 +355,10 @@ function KeptRow({ surah, kept, done, onOpen }: { surah: Surah; kept: Kept; done
             <span className="font-mono text-[10px] tabular-nums">{kept.hl.length}</span>
           </span>
         )}
-        {kept.notes.length > 0 && <Count icon={<StickyNote size={12} strokeWidth={1.6} />} n={kept.notes.length} what="note" />}
+        {kept.notes.length > 0 && <Count icon={<NoteGlyph size={12} strokeWidth={1.6} />} n={kept.notes.length} what="note" />}
         {kept.voice.length > 0 && <Count icon={<Mic size={12} strokeWidth={1.6} />} n={kept.voice.length} what="voice note" />}
         {kept.marks.length > 0 && <Count icon={<Bookmark size={12} strokeWidth={1.6} />} n={kept.marks.length} what="bookmark" />}
-        {kept.reflection && <span title="Your reflection"><QuillGlyph size={13} /></span>}
+        {kept.reflection && <span title="Your reflection"><BrainGlyph size={13} /></span>}
         <span className={cn("flex h-4 w-4 items-center justify-center rounded-full border", done ? "border-[var(--box-fg)] bg-[var(--box-fg)] text-[var(--box-bg-solid)]" : "border-[var(--box-line)] text-transparent")} title={done ? "Completed" : "Not completed yet"}>
           <Check size={10} strokeWidth={2.6} />
         </span>

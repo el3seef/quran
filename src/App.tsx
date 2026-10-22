@@ -1,10 +1,11 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Backdrop, type Phase } from "@/components/Backdrop";
 import { Frame } from "@/components/Frame";
 import { Grain } from "@/components/bits";
 import { ContextMenu } from "@/components/ContextMenu";
 import { CoverThemes } from "@/components/CoverThemes";
+import { CoverStrip } from "@/components/CoverStrip";
 import { Intro } from "@/pages/Intro";
 import { Select, type OpenRequest } from "@/pages/Select";
 import { Read } from "@/read/Read";
@@ -18,6 +19,10 @@ import { useUI, type MenuItem } from "@/lib/ui";
 import { isLongPressMenu, watchLongPress, watchTwoFingerTap } from "@/lib/touch";
 import { watchSounds } from "@/lib/uiSounds";
 import { isTouch, watchIdle } from "@/lib/motion";
+
+// the Seerah, and the making of an ayah video, loaded when first opened
+const Seerah = lazy(() => import("@/seerah/Seerah"));
+const Studio = lazy(() => import("@/video/Studio"));
 
 type Start = { surah: number; ayah: number; from?: OpenRequest["from"]; showOpener?: boolean };
 
@@ -36,7 +41,7 @@ export default function App() {
   const last = useStore((s) => s.last);
   const [index, setIndex] = useState<{ surahs: Surah[]; juz: Record<string, string> } | null>(null);
   const [linked] = useState(readHash);
-  const [phase, setPhase] = useState<Phase>(linked ? "read" : "intro");
+  const [phase, setPhase] = useState<Phase>(linked ? "read" : location.hash.startsWith("#/seerah") ? "seerah" : location.hash.startsWith("#/video") ? "video" : "intro");
   const [entering, setEntering] = useState(false);
   const [start, setStart] = useState<Start>(linked ?? { surah: 1, ayah: 1 });
   const [indexAt, setIndexAt] = useState({ surah: last?.s ?? 1, ayah: last?.v ?? 1 }); // where the index opens
@@ -47,6 +52,11 @@ export default function App() {
   const about = useUI((s) => s.about);
   const setAbout = useUI((s) => s.setAbout);
   const [coverSearch, setCoverSearch] = useState(false); // the cover turned into its search
+  // (the field is focused in the press itself, so a phone brings its keyboard up)
+  const openCoverSearch = () => {
+    document.querySelector<HTMLInputElement>(".cover-search-input")?.focus({ preventScroll: true });
+    setCoverSearch(true);
+  };
 
   useEffect(() => {
     loadIndex().then(setIndex);
@@ -84,17 +94,10 @@ export default function App() {
       } else if (s.phase === "intro") {
         const enter = document.querySelector<HTMLButtonElement>('button[aria-label="Read the Qur\'an"]');
         if (enter) items.push({ type: "item", label: "Read the Qur'an", hint: "Enter", onSelect: () => enter.click() });
-        items.push({
-          type: "item",
-          label: "Search",
-          hint: "/",
-          onSelect: () => {
-            document.querySelector<HTMLInputElement>(".cover-search-input")?.focus({ preventScroll: true });
-            setCoverSearch(true);
-          },
-        });
+        const seerah = document.querySelector<HTMLButtonElement>('button[aria-label="The Seerah"]');
+        if (seerah) items.push({ type: "item", label: "The Seerah", onSelect: () => seerah.click() });
+        items.push({ type: "item", label: "Search", hint: "/", onSelect: openCoverSearch });
         items.push({ type: "item", label: "Settings", onSelect: () => setCoverSettings(true) });
-        items.push({ type: "item", label: "About this reader", onSelect: () => useUI.getState().setAbout(true) });
       }
       if (items.length) items.push({ type: "sep" });
       items.push({ type: "item", label: "Reload", onSelect: () => location.reload() });
@@ -115,6 +118,8 @@ export default function App() {
   const [readKey, setReadKey] = useState(0);
   useEffect(() => {
     const on = () => {
+      if (location.hash.startsWith("#/seerah")) return setPhase("seerah");
+      if (location.hash.startsWith("#/video")) return setPhase("video");
       const h = readHash();
       if (!h) return;
       setStart(h);
@@ -132,18 +137,13 @@ export default function App() {
 
   useEffect(() => {
     const root = document.documentElement;
-    const mono = settings.theme === "mono";
-    // Monochrome has its own two choices: the frame dark or light, the page around it dark or light
-    root.dataset.box = mono ? (settings.monoCard === "light" ? "paper" : "night") : settings.boxTheme;
-    if (mono) root.dataset.sky = settings.monoSky;
-    else delete root.dataset.sky;
-    root.dataset.theme = settings.theme;
+    // (the Seerah in its own look, whatever the reader's theme)
+    root.dataset.theme = phase === "seerah" ? "seerah" : settings.theme;
     root.dataset.motion = settings.reduceMotion ? "reduce" : "full";
-    root.dataset.arabic = settings.arabicSpacing;
     // the phone's own bar (a home-screen app, Android's browser) takes the colour of the sky
     const sky = getComputedStyle(root).getPropertyValue("--sky").trim();
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", sky || "#0b1320");
-  }, [settings.boxTheme, settings.theme, settings.reduceMotion, settings.arabicSpacing, settings.monoSky, settings.monoCard]);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", sky || "#4a0a0f");
+  }, [settings.theme, settings.reduceMotion, phase]);
 
   // after the first frame is on screen, later frame moves animate
   useEffect(() => {
@@ -217,52 +217,97 @@ export default function App() {
 
   return (
     <>
-      <Backdrop theme={settings.theme} still={focus && phase === "read"} grain={settings.grain} />
-
-      <Frame rect={rect} instant={firstFrame} quick={reflow} amplitude={settings.reduceMotion || settings.theme === "mono" || settings.theme === "folio" || settings.theme === "paper" || focus ? 0 : phase === "read" ? 0.45 : 1}>
-        <AnimatePresence>
-          {phase === "intro" && !entering && (
-            <motion.div key="intro" className="absolute inset-[3px]" exit={{ opacity: 0, transition: { duration: 0.25 } }}>
-              <Intro
-                onEnter={enter}
-                onSettings={() => {
-                  setCoverSearch(false);
-                  setCoverSettings((o) => !o);
+      {/* (the Seerah is a world of its own: over the whole screen, without the Qur'an's sky or frame) */}
+      {phase !== "seerah" && <Backdrop theme={settings.theme} still={focus && phase === "read"} grain={settings.grain} />}
+      <AnimatePresence>
+        {phase === "seerah" && (
+          <motion.div key="seerah" className="fixed inset-0 z-10" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.7 } }} exit={{ opacity: 0, transition: { duration: 0.35 } }}>
+            <Suspense fallback={null}>
+              <Seerah
+                mobile={vp.mobile}
+                onHome={() => {
+                  history.replaceState(null, "", location.pathname);
+                  setPhase("intro");
                 }}
-                settingsOpen={coverSettings}
-                mobile={vp.mobile}
-                index={index}
-                searching={searchingCover}
-                onSearching={setCoverSearch}
-                onPick={onCoverPick}
-                onContinue={goTo}
+                onQuran={(s, a) => {
+                  setStart({ surah: s, ayah: a });
+                  setPhase("read");
+                }}
               />
-            </motion.div>
-          )}
-          {phase === "select" && index && (
-            <motion.div key="select" className="absolute inset-[3px]" exit={{ opacity: 0, transition: { duration: 0.45 } }}>
-              <Select surahs={index.surahs} juz={index.juz} initialSurah={indexAt.surah} initialAyah={indexAt.ayah} onOpen={onOpen} mobile={vp.mobile} resume={resume} onSettings={() => setCoverSettings((o) => !o)} settingsOpen={coverSettings} />
-            </motion.div>
-          )}
-          {phase === "read" && index && (
-            <motion.div key={`read-${readKey}`} className="absolute inset-[3px]" exit={{ opacity: 0, transition: { duration: 0.3 } }}>
-              <Read
-                surahs={index.surahs}
-                juz={index.juz}
-                start={start}
-                onIndex={onIndex}
-                mobile={vp.mobile}
-                below={vp.h - (rect.top + rect.height)}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-        {(phase === "intro" || phase === "select") && index && (
-          <SettingsPanel open={coverSettings} onClose={() => setCoverSettings(false)} surahs={index.surahs} onGo={goTo} mobile={vp.mobile} />
+            </Suspense>
+          </motion.div>
         )}
-        <AboutPanel open={about} onClose={() => setAbout(false)} />
-      </Frame>
+      </AnimatePresence>
 
+      {phase !== "seerah" && (
+        <Frame rect={rect} instant={firstFrame} quick={reflow} amplitude={settings.reduceMotion || settings.theme === "paper" || focus ? 0 : phase === "read" ? 0.45 : 1}>
+          <AnimatePresence>
+            {phase === "intro" && !entering && (
+              <motion.div key="intro" className="absolute inset-[3px]" exit={{ opacity: 0, transition: { duration: 0.25 } }}>
+                <Intro
+                  onEnter={enter}
+                  onSettings={() => {
+                    setCoverSearch(false);
+                    setCoverSettings((o) => !o);
+                  }}
+                  settingsOpen={coverSettings}
+                  mobile={vp.mobile}
+                  index={index}
+                  searching={searchingCover}
+                  onSearching={setCoverSearch}
+                  onPick={onCoverPick}
+                  onSeerah={() => {
+                    setCoverSearch(false);
+                    setPhase("seerah");
+                  }}
+                  onVideo={() => {
+                    setCoverSearch(false);
+                    history.replaceState(null, "", "#/video");
+                    setPhase("video");
+                  }}
+                />
+              </motion.div>
+            )}
+            {phase === "select" && index && (
+              <motion.div key="select" className="absolute inset-[3px]" exit={{ opacity: 0, transition: { duration: 0.45 } }}>
+                <Select surahs={index.surahs} juz={index.juz} initialSurah={indexAt.surah} initialAyah={indexAt.ayah} onOpen={onOpen} mobile={vp.mobile} resume={resume} onSettings={() => setCoverSettings((o) => !o)} settingsOpen={coverSettings} onBack={() => (setCoverSettings(false), setPhase("intro"))} />
+              </motion.div>
+            )}
+            {phase === "video" && index && (
+              <motion.div key="video" className="absolute inset-[3px]" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.5, delay: 0.2 } }} exit={{ opacity: 0, transition: { duration: 0.3 } }}>
+                <Suspense fallback={null}>
+                  <Studio
+                    surahs={index.surahs}
+                    mobile={vp.mobile}
+                    onBack={() => {
+                      history.replaceState(null, "", location.pathname);
+                      setPhase("intro");
+                    }}
+                  />
+                </Suspense>
+              </motion.div>
+            )}
+            {phase === "read" && index && (
+              <motion.div key={`read-${readKey}`} className="absolute inset-[3px]" exit={{ opacity: 0, transition: { duration: 0.3 } }}>
+                <Read
+                  surahs={index.surahs}
+                  juz={index.juz}
+                  start={start}
+                  onIndex={onIndex}
+                  mobile={vp.mobile}
+                  below={vp.h - (rect.top + rect.height)}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {(phase === "intro" || phase === "select") && index && (
+            <SettingsPanel open={coverSettings} onClose={() => setCoverSettings(false)} surahs={index.surahs} onGo={goTo} mobile={vp.mobile} />
+          )}
+          <AboutPanel open={about} onClose={() => setAbout(false)} />
+        </Frame>
+      )}
+
+      <CoverStrip show={cover && !coverSearch} rect={rect} mobile={vp.mobile} surahs={index?.surahs} onSearch={openCoverSearch} onContinue={goTo} />
       <CoverThemes show={cover && !coverSearch} mobile={vp.mobile} />
       <ContextMenu />
       {/* Paper draws its icons in ink: the line a little uneven, as by a pen */}

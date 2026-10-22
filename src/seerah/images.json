@@ -1,0 +1,222 @@
+{
+  "dunes": {
+    "file": "dunes.webp",
+    "kind": "photo",
+    "title": "Dunes of the Empty Quarter, at 'Uruq Bani Ma'arid",
+    "credit": "Saudi Press Agency",
+    "license": "CC BY-SA 4.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Uruq_Bani_Ma%27arid_Reserve,_Saudi_Arabia_(2025).jpg"
+  },
+  "mecca-1880": {
+    "file": "mecca-1880.webp",
+    "kind": "photo",
+    "title": "Makkah and its Sacred Mosque, 1880",
+    "credit": "Muhammad Sadiq Bey; Khalili Collections",
+    "license": "CC BY-SA 3.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Edited_Khalili_Collection_Hajj_and_Arts_of_Pilgrimage_arc.pp_0211.02-Photo_of_Mecca_by_Muhammad_Sadiq_Bey_ca.1880-ccbysa3.0.png"
+  },
+  "nour": {
+    "file": "nour.webp",
+    "kind": "photo",
+    "title": "Jabal an-Nur, the Mountain of Light",
+    "credit": "Kaliper1",
+    "license": "CC BY-SA 4.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Jabbal_An-Nour_(2024).jpg",
+    "pos": "50% 70%"
+  },
+  "hira": {
+    "file": "hira.webp",
+    "kind": "photo",
+    "title": "Jabal an-Nur, the mountain of the cave of Hira'",
+    "credit": "Wal N.",
+    "license": "CC BY 2.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Jabbal_An-Nour_-_Makkah_(2241558560).jpg"
+  },
+  "aksum": {
+    "file": "aksum.webp",
+    "kind": "photo",
+    "title": "The stelae of Aksum, the old capital of Abyssinia",
+    "credit": "Rod Waddington",
+    "license": "CC BY-SA 2.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Stelae,_Aksum,_Ethiopia_(7158408756).jpg"
+  },
+  "madinah-1880": {
+    "file": "madinah-1880.webp",
+    "kind": "photo",
+    "title": "Madinah, about 1880",
+    "credit": "Khalili Collections",
+    "license": "CC BY-SA 3.0 IGO",
+    "url": "https://commons.wikimedia.org/wiki/File:Khalili_Collection_Hajj_and_Arts_of_Pilgrimage_arc.pp_0211.09_CROP.jpg"
+  },
+  "hejaz-coast": {
+    "file": "hejaz-coast.webp",
+    "kind": "photo",
+    "title": "The mountains of the Hijaz by the sea, about 1900",
+    "credit": "Matson Collection, Library of Congress",
+    "license": "Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:Gulf_of_Akaba._Head_of_the_Gulf._Showing_mountains_on_the_Hedjaz_(i.e.,_Hejaz)_side_LOC_matpc.00251.jpg",
+    "pos": "50% 40%"
+  },
+  "kaaba-1880": {
+    "file": "kaaba-1880.webp",
+    "kind": "photo",
+    "title": "The Ka'bah, about 1880",
+    "credit": "Muhammad Sadiq Bey; Khalili Collections",
+    "license": "Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:Khalili_Collection_Hajj_and_Arts_of_Pilgrimage_arc.pp_0211.04_CROP.jpg"
+  },
+  "kaaba-1910": {
+    "file": "kaaba-1910.webp",
+    "kind": "photo",
+    "title": "The Ka'bah in its covering, about 1910",
+    "credit": "American Colony, Jerusalem; Library of Congress",
+    "license": "Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:Kaaba_(1910)-2.jpg"
+  },
+  "mecca-1888": {
+    "file": "mecca-1888.webp",
+    "kind": "photo",
+    "title": "Makkah, its valley and its hills, 1888",
+    "credit": "Al-Sayyid 'Abd al-Ghaffar, for C. Snouck Hurgronje",
+    "license": "Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:Pan%C3%A9njoan_Mekah_ku_Haji_Gofur_(Christiaan_Snouck_Hurgronje).jpg"
+  },
+  "acacia": {
+    "file": "acacia.webp",
+    "kind": "photo",
+    "title": "An acacia in the stony desert",
+    "credit": "Alexander Sergeev, asergeev.com",
+    "license": "CC BY-SA 3.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Rocky_lightly_vegetated_desert_in_Umm_Bab_with_Acacia_tortilis.jpg"
+  },
+  "solidus": {
+    "file": "solidus.webp",
+    "kind": "cut",
+    "title": "A gold coin of the emperor Heraclius, 629–631",
+    "credit": "The Metropolitan Museum of Art",
+    "license": "CC0",
+    "url": "https://commons.wikimedia.org/wiki/File:Solidus_of_Heraclius_and_Heraclius_Constantine_MET_sf04-2-821s2.jpg"
+  },
+  "inscription": {
+    "file": "inscription.webp",
+    "kind": "photo",
+    "title": "A gravestone in Nabataean-Arabic letters, Al-'Ula, 3rd century",
+    "credit": "Jean-Pierre Dalbéra",
+    "license": "CC BY 2.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Inscription_en_caract%C3%A8res_nabat%C3%A9o-arabes_(Institut_du_monde_arabe,_Paris).jpg"
+  },
+  "boswellia": {
+    "file": "boswellia.webp",
+    "kind": "photo",
+    "title": "A frankincense tree, Boswellia sacra",
+    "credit": "Krzysztof Ziarnek, Kenraiz",
+    "license": "CC BY-SA 4.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Boswellia_sacra_kz03.jpg"
+  },
+  "camels": {
+    "file": "camels.webp",
+    "kind": "photo",
+    "title": "Camels on the move",
+    "credit": "Daniel Villafruela",
+    "license": "CC BY-SA 3.0",
+    "url": "https://commons.wikimedia.org/wiki/File:RJ_SH_67-01-20131012,_dromedaries_in_Thar_Desert.jpg",
+    "pos": "25% 50%"
+  },
+  "sword": {
+    "file": "sword.webp",
+    "kind": "cut",
+    "title": "A sword and scabbard of the 7th century, Sasanian Iran",
+    "credit": "The Metropolitan Museum of Art",
+    "license": "CC0",
+    "url": "https://commons.wikimedia.org/wiki/File:Sword_and_scabbard_MET_DT923.jpg",
+    "tilt": -32
+  },
+  "bosra": {
+    "file": "bosra.webp",
+    "kind": "photo",
+    "title": "The Roman theatre of Busra, in Syria",
+    "credit": "Dosseman",
+    "license": "CC BY-SA 4.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Bosra_theatre_cavea_0675.jpg"
+  },
+  "milkyway-desert": {
+    "file": "milkyway-desert.webp",
+    "kind": "photo",
+    "title": "The Milky Way over a desert",
+    "credit": "Steve Jurvetson",
+    "license": "CC BY 2.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Milky_Way_Night_Sky_Black_Rock_Desert_Nevada.jpg"
+  },
+  "milkyway": {
+    "file": "milkyway.webp",
+    "kind": "photo",
+    "title": "The night sky over a stony desert",
+    "credit": "ESO/P. Horálek",
+    "license": "CC BY 4.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Milky_Way_viewed_from_Cerro_Armazones,_Chile_(2019).jpg"
+  },
+  "quran-folio": {
+    "file": "quran-folio.webp",
+    "kind": "photo",
+    "title": "A leaf of the Qur'an in Kufic script",
+    "credit": "The Metropolitan Museum of Art",
+    "license": "Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:Folio_from_a_Qur%27an_Manuscript_(IA_mma_folio_from_a_quran_manuscript_448281).jpg"
+  },
+  "bow": {
+    "file": "bow.webp",
+    "kind": "cut",
+    "title": "A composite bow, about 1550",
+    "credit": "The Metropolitan Museum of Art",
+    "license": "CC0",
+    "url": "https://commons.wikimedia.org/wiki/File:Two_Sections_of_a_Composite_Bow_MET_LC-28_9_9_EGDP026967.jpg"
+  },
+  "moon": {
+    "file": "moon.webp",
+    "kind": "cut",
+    "title": "The full moon",
+    "credit": "Gregory H. Revera",
+    "license": "CC BY-SA 3.0",
+    "url": "https://commons.wikimedia.org/wiki/File:FullMoon2010_(cropped).jpg"
+  },
+  "oasis": {
+    "file": "oasis.webp",
+    "kind": "photo",
+    "title": "The palm groves of Al-Ahsa",
+    "credit": "Kakkara",
+    "license": "CC BY-SA 3.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Jabal_Al_Qara_Cave_-_Al_Hassa,_Saudi_Arabia_%E0%B4%9C%E0%B4%AC%E0%B5%BD_%E0%B4%85%E0%B5%BD_%E0%B4%96%E0%B4%BE%E0%B4%B1_%E0%B4%97%E0%B5%81%E0%B4%B9,_%E0%B4%85%E0%B5%BD_%E0%B4%B9%E0%B4%B8,_%E0%B4%B8%E0%B5%97%E0%B4%A6%E0%B4%BF_%E0%B4%85%E0%B4%B1%E0%B5%87%E0%B4%AC%E0%B5%8D%E0%B4%AF_13.JPG"
+  },
+  "zamzam": {
+    "file": "zamzam.webp",
+    "kind": "photo",
+    "title": "The hills of Makkah by night, drawn from their heights",
+    "credit": "Drawn for this site from the heights of the land (SRTM, public domain)",
+    "license": "CC0",
+    "url": "https://registry.opendata.aws/terrain-tiles/"
+  },
+  "makkah-dawn": {
+    "file": "makkah-dawn.webp",
+    "kind": "photo",
+    "title": "The mountains about Makkah at dawn, drawn from their heights",
+    "credit": "Drawn for this site from the heights of the land (SRTM, public domain)",
+    "license": "CC0",
+    "url": "https://registry.opendata.aws/terrain-tiles/"
+  },
+  "taif-grief": {
+    "file": "taif-grief.webp",
+    "kind": "photo",
+    "title": "The mountains between Makkah and Ta'if, drawn from their heights",
+    "credit": "Drawn for this site from the heights of the land (SRTM, public domain)",
+    "license": "CC0",
+    "url": "https://registry.opendata.aws/terrain-tiles/"
+  },
+  "hijaz-render": {
+    "file": "hijaz-render.webp",
+    "kind": "photo",
+    "title": "The Hijaz and the Red Sea, drawn from their heights",
+    "credit": "Drawn for this site from SRTM heights and NASA's Blue Marble (public domain)",
+    "license": "CC0",
+    "url": "https://visibleearth.nasa.gov/collection/1484/blue-marble"
+  }
+}
