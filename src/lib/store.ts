@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { Translation } from "./data";
-import { DEFAULT_THEME, THEME_IDS, type ThemeId } from "./themes";
+import { DEFAULT_THEME, THEME_IDS, type Appearance, type ThemeId } from "./themes";
 
 export type HighlightColor = "yellow" | "green" | "pink" | "blue" | "orange";
 export const HIGHLIGHT_COLORS: HighlightColor[] = ["yellow", "green", "pink", "blue", "orange"];
@@ -83,6 +83,7 @@ export type Settings = {
   translit: boolean; // in a word's meaning
   translitLine: boolean; // the whole ayah transliterated, under its Arabic
   theme: ThemeId; // the whole site's look (lib/themes.ts)
+  appearance: Appearance; // light or dark: the device's own, or one held
   grain: boolean;
   slider: boolean; // the ayah slider under the reading frame
   reduceMotion: boolean;
@@ -160,8 +161,9 @@ const DEFAULTS: Settings = {
   translit: true,
   translitLine: false,
   theme: DEFAULT_THEME,
+  appearance: "auto",
   slider: true,
-  grain: true,
+  grain: false,
   reduceMotion: false,
   view: 1,
   book: false,
@@ -288,8 +290,12 @@ export const useStore = create<State>()(
         const p = { ...((persisted ?? {}) as Partial<State> & { stats?: unknown }) };
         delete p.stats; // the reading counts the site once kept are gone
         const settings: Settings & Record<string, unknown> = { ...DEFAULTS, ...(p.settings ?? {}) };
-        // the themes the site no longer has (Classic, Monochrome, Atlas, Folio, Blue): its own, Sajjadah
-        if (!THEME_IDS.includes(settings.theme)) settings.theme = DEFAULT_THEME;
+        // the themes the site no longer has (Sajjadah, Paper, Lunar and those before them): its one look, Quiet;
+        // and the film grain they wore is gone with them
+        if (!THEME_IDS.includes(settings.theme)) {
+          settings.theme = DEFAULT_THEME;
+          settings.grain = false;
+        }
         delete settings.boxTheme;
         delete settings.monoSky;
         delete settings.monoCard;

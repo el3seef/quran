@@ -1,16 +1,30 @@
-import type React from "react";
+import { useEffect, useState } from "react";
 
 /**
- * The site's themes: each its own sky, box, type and motion (index.css under
- * :root[data-theme=…], components/ui/skies.tsx, ImmersivePanel). `preview` draws its swatch.
- * Sajjadah (id "crimson", the prayer rug's red and gold) is the site's own, the one it opens in.
+ * The site's one look, Quiet: a warm paper page and deep ink, one green for what matters, the words
+ * given the room (index.css :root[data-theme="quiet"]). It comes in a light and a dark appearance:
+ * by default the device's own (the phone's or the computer's setting), or one held in Settings.
  */
-export type ThemeId = "crimson" | "paper" | "lunar";
-export const THEME_IDS: ThemeId[] = ["crimson", "paper", "lunar"];
-export const DEFAULT_THEME: ThemeId = "crimson";
+export type ThemeId = "quiet";
+export const THEME_IDS: ThemeId[] = ["quiet"];
+export const DEFAULT_THEME: ThemeId = "quiet";
 
-export const THEMES: { id: ThemeId; name: string; preview: { bg: string; box: string; fg: string; ac: string; r: number; b: string }; face: React.CSSProperties }[] = [
-  { id: "crimson", name: "Sajjadah", preview: { bg: "#5a0d13", box: "#1a0507", fg: "#eddcbb", ac: "#c9a35f", r: 0, b: "3px solid #100203" }, face: { fontFamily: "Amiri", fontStyle: "italic" } },
-  { id: "paper", name: "Paper", preview: { bg: "#8e8a82", box: "#ece8de", fg: "#23211c", ac: "#9b3d2c", r: 0, b: "1px solid #b8b1a2" }, face: { fontFamily: "Fraunces Variable", fontStyle: "italic", fontWeight: 340 } },
-  { id: "lunar", name: "Lunar", preview: { bg: "#0a1a2c", box: "#0f1b29", fg: "#e8eef5", ac: "#c9d6e3", r: 12, b: "4px solid #04070c" }, face: { fontFamily: "Jost Variable", fontWeight: 300, textTransform: "uppercase", letterSpacing: "0.16em" } },
+export type Appearance = "auto" | "light" | "dark";
+export const APPEARANCES: [Appearance, string][] = [
+  ["auto", "As the device"],
+  ["light", "Light"],
+  ["dark", "Dark"],
 ];
+
+/** The appearance shown: the one chosen, or (auto) the device's, followed as it changes. */
+export function useScheme(appearance: Appearance): "light" | "dark" {
+  const query = typeof matchMedia === "undefined" ? null : matchMedia("(prefers-color-scheme: dark)");
+  const [dark, setDark] = useState(() => !!query?.matches);
+  useEffect(() => {
+    if (!query) return;
+    const on = () => setDark(query.matches);
+    query.addEventListener("change", on);
+    return () => query.removeEventListener("change", on);
+  }, [query]);
+  return appearance === "auto" ? (dark ? "dark" : "light") : appearance;
+}

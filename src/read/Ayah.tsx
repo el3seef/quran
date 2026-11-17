@@ -97,10 +97,13 @@ export const AyahSection = memo(function AyahSection({
      the one-ayah view one too long for the frame is read down to a mark at its end (and only a
      further swipe goes on to the next: pager.ts). ── */
   const [over, setOver] = useState(false);
-  const arPx = arabicSize(v, view, mobile, settings.arabicScale * (settings.readingMode === "arabic" ? 1.18 : 1));
-  const trPx = translationSize(tr.canon, view, mobile, settings.transScale * (settings.readingMode === "translation" ? 1.15 : 1));
+  // (a computer's wider page reads larger: still one size for every ayah, grown with the page's width,
+  // up to a third more; the translation and the many-ayah view grow less)
+  const grow = mobile ? 1 : Math.round(Math.min(1.3, Math.max(1, ((viewW || window.innerWidth - 120) - 150) / 850)) * 20) / 20;
+  const arPx = arabicSize(v, view, mobile, settings.arabicScale * (settings.readingMode === "arabic" ? 1.18 : 1) * (view === 1 ? grow : 1 + (grow - 1) * 0.6));
+  const trPx = translationSize(tr.canon, view, mobile, settings.transScale * (settings.readingMode === "translation" ? 1.15 : 1) * (1 + (grow - 1) * (view === 1 ? 0.6 : 0.45)));
 
-  const sig = `${view}|${settings.readingMode}|${settings.translation}|${settings.also.join(",")}|${settings.script}|${settings.arabicScale}|${settings.transScale}|${mobile}`;
+  const sig = `${view}|${settings.readingMode}|${settings.translation}|${settings.also.join(",")}|${settings.script}|${settings.arabicScale}|${settings.transScale}|${mobile}|${grow}`;
   // (the line it decides on takes no room: so it is asked once the page is drawn, never while it is
   // being laid out, and only of the ayahs about the reader; one not laid out yet is asked again as it
   // is: shownTick)
@@ -236,11 +239,12 @@ export const AyahSection = memo(function AyahSection({
   if (!one) hold = Math.max(hold, showAr ? 188 : 168); // (the buttons' height, as the section's minimum)
 
   const sectionClass = cn(
-    "snap-item cv relative flex flex-col",
+    // (a reading measure on a wide screen: the column held to the middle, its buttons beside it)
+    "snap-item cv relative flex flex-col md:mx-auto md:w-full md:max-w-[1040px] 2xl:max-w-[1180px]",
     one
-      ? "min-h-full justify-center pl-[max(7%,34px)] pr-[max(7%,66px)] md:pl-[9%] md:pr-[max(9%,64px)]"
+      ? "min-h-full justify-center px-[max(4%,14px)] md:px-[8%]"
       : cn(
-          "justify-center border-b border-[var(--box-line)] pb-9 pl-[max(6%,34px)] pr-[max(calc(6%+44px),66px)] pt-7 md:pl-[6%] md:pr-[calc(6%+44px)] md:pt-9",
+          "justify-center border-b border-[var(--box-line)] pb-9 pl-5 pr-[54px] pt-7 sm:pl-[max(6%,34px)] sm:pr-[max(calc(6%+44px),66px)] md:pl-[6%] md:pr-[calc(6%+44px)] md:pt-9",
           // never shorter than its column of buttons (five, 168px) with the column's insets
           showAr ? "min-h-[252px] md:min-h-[260px]" : "min-h-[232px] md:min-h-[240px]",
         ),
@@ -377,10 +381,10 @@ export const AyahSection = memo(function AyahSection({
           down the ayah and its translation (below the number, above the bottom padding) */}
       {!one && (
         <>
-          <div data-ayah-tools className={cn("absolute bottom-9 right-[30px] flex items-center md:right-3", showAr ? "top-12 md:top-14" : "top-7 md:top-9")}>
+          <div data-ayah-tools className={cn("absolute bottom-9 right-2.5 flex items-center sm:right-[30px] md:right-3", showAr ? "top-12 md:top-14" : "top-7 md:top-9")}>
             <Actions {...act} />
           </div>
-          <div data-ayah-tools className="absolute bottom-1.5 right-[30px] md:right-3">
+          <div data-ayah-tools className="absolute bottom-1.5 right-2.5 sm:right-[30px] md:right-3">
             <OwnActions {...act} />
           </div>
         </>
@@ -572,19 +576,14 @@ export function ContextToggle({ on, onToggle, compact }: { on: boolean; onToggle
     <button
       type="button"
       onClick={onToggle}
-      className="group inline-flex h-full min-h-8 shrink-0 items-center gap-2 px-2 text-[var(--box-faint)] transition-colors hover:text-[var(--box-fg)]"
+      className="press inline-flex h-9 shrink-0 items-center gap-2.5 rounded-full pl-3.5 pr-2 text-[13px] text-[var(--box-muted)] hover:bg-[var(--box-hover)] hover:text-[var(--box-fg)]"
       aria-pressed={on}
       aria-label={on ? "Hide the bracketed context" : "Show the bracketed context"}
-      title={on ? "Hide the bracketed context" : "Show the bracketed context"}
+      title={on ? "Hide the bracketed context (C)" : "Show the bracketed context (C)"}
     >
-      <span className="whitespace-nowrap">{compact ? "( )" : "( context )"}</span>
-      <span className={cn("pill relative inline-block h-[11px] w-[20px] border border-current transition-colors duration-300", on && "border-[var(--box-accent)]")}>
-        <span
-          className={cn(
-            "pill absolute top-[1.5px] h-[6px] w-[6px] bg-current transition-all duration-300 ease-out",
-            on ? "left-[11px] bg-[var(--box-accent)]" : "left-[1.5px]",
-          )}
-        />
+      <span className="whitespace-nowrap">{compact ? "( )" : "Context"}</span>
+      <span className={cn("relative inline-block h-5 w-9 rounded-full transition-colors duration-200", on ? "bg-[var(--box-fg)]" : "bg-[var(--box-line)]")}>
+        <span className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-[var(--surface)] shadow-sm transition-[left] duration-200 ease-out", on ? "left-[18px]" : "left-0.5")} />
       </span>
     </button>
   );
@@ -604,9 +603,9 @@ type ActionProps = {
  * for one's own and for giving it on: a note, a voice note, its words copied, a picture of it. (In the
  * one-ayah view the two meet in the frame's corner: Read.)
  */
-export function Actions({ bookmarked, reciting, onAction }: ActionProps) {
+export function Actions({ bookmarked, reciting, onAction, row }: ActionProps & { row?: boolean }) {
   return (
-    <div className="flex flex-col items-center gap-0.5 text-[var(--box-muted)]">
+    <div className={cn("flex items-center gap-0.5 text-[var(--box-muted)]", !row && "flex-col")}>
       <IconBtn label={reciting ? "Pause the recitation" : "Recite this ayah"} onClick={(e) => onAction("recite", e)} active={reciting} sfx="none">
         {reciting ? <Pause size={15} strokeWidth={1.5} /> : <Play size={15} strokeWidth={1.5} className="ml-px" />}
       </IconBtn>
@@ -670,9 +669,9 @@ function IconBtn({
       data-sfx={sfx}
       onClick={(e) => onClick(e.currentTarget)}
       className={cn(
-        "relative flex items-center justify-center transition-colors hover:bg-[var(--box-hover)] hover:text-[var(--box-fg)]",
-        small ? "h-7 w-7" : "h-8 w-8",
-        active && "text-[var(--box-accent)] hover:text-[var(--box-accent)]",
+        "press relative flex items-center justify-center rounded-full hover:bg-[var(--box-hover)] hover:text-[var(--box-fg)]",
+        small ? "h-8 w-8" : "h-9 w-9",
+        active && "bg-[color-mix(in_srgb,var(--box-accent)_14%,transparent)] text-[var(--box-accent)] hover:bg-[color-mix(in_srgb,var(--box-accent)_20%,transparent)] hover:text-[var(--box-accent)]",
       )}
     >
       {children}

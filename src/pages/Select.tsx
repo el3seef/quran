@@ -1,508 +1,248 @@
-import { animate, AnimatePresence, motion, useMotionValue, useMotionValueEvent } from "framer-motion";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowLeft, Check, ChevronDown } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { ArrowRight, X } from "lucide-react";
 import { IndexView, INDEX_VIEWS, type IndexKind } from "./IndexViews";
-import { HaloReel, type ReelGeometry } from "@/components/ui/halo-reel";
 import { AyahSlider } from "@/components/ui/slider";
-import { SurahCard } from "@/components/SurahCard";
 import { SearchBox } from "@/components/SearchBox";
-import { BracketButton, Clock, DotField } from "@/components/bits";
 import type { Surah } from "@/lib/data";
-import { pad3 } from "@/lib/data";
-import type { Result } from "@/lib/search";
 import type { Rect } from "@/lib/layout";
-import { isLongPressMenu } from "@/lib/touch";
-import { EASE_OUT, clamp, cn } from "@/lib/utils";
-import { useUI, type MenuItem } from "@/lib/ui";
-import { SettingsGlyph } from "@/components/ImmersivePanel";
-import { ayn, nameMarks } from "@/lib/names";
-
-const COUNT = 114;
-const SEARCH_H = 40; // the search input's height
-const NAME_H = 30; // the surah name row above it
-const NAME_GAP = 14;
-const mod = (a: number, n: number) => ((a % n) + n) % n;
-let lastView: IndexKind = "ring"; // the way the index was last seen, kept for coming back to it
+import type { Result } from "@/lib/search";
+import { surahColor } from "@/lib/surahColor";
+import { nameMarks } from "@/lib/names";
+import { useUI } from "@/lib/ui";
+import { EASE_OUT, cn } from "@/lib/utils";
+import { byKeys } from "@/lib/motion";
 
 export type OpenRequest = { surah: number; ayah: number; from?: Rect };
 
+let lastView: IndexKind = "ring"; // the way the index was last seen, kept for coming back to it
+
+/**
+ * The surahs: all 114 as cards, each in its own colour (lib/surahColor), the one the reader came
+ * from lit and brought into view; the other ways into the Qur'an (the juz, where each was revealed,
+ * its themes, topics, supplications, prostrations, summaries) a chip each above them. A card opens a
+ * sheet: begin the surah, or choose the ayah to begin at.
+ */
 export function Select({
   surahs,
   juz,
   initialSurah,
-  initialAyah = 1,
+  initialAyah,
   onOpen,
   mobile,
   resume,
-  onSettings,
-  settingsOpen,
-  onBack,
 }: {
   surahs: Surah[];
   juz: Record<string, string>;
   initialSurah: number;
-  initialAyah?: number; // back from the reader: the ayah that was being read
+  initialAyah: number;
   onOpen: (r: OpenRequest) => void;
   mobile: boolean;
-  resume?: { s: number; v: number } | null; // where the reader left off, last time
+  resume?: { s: number; v: number } | null;
   onSettings: () => void;
   settingsOpen: boolean;
-  onBack: () => void; // back to page one (the Qur'an, the Seerah, a video of an ayah)
+  onBack: () => void;
 }) {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ w: 0, h: 0 });
-  const pos = useMotionValue(initialSurah - 1);
-  const [front, setFront] = useState(initialSurah - 1);
-  const [ayah, setAyah] = useState(initialAyah);
-  const pendingAyah = useRef<{ surah: number; ayah: number } | null>({ surah: initialSurah, ayah: initialAyah });
   const [view, setViewState] = useState<IndexKind>(lastView);
   const setView = (v: IndexKind) => {
     lastView = v;
     setViewState(v);
   };
-  const ring = view === "ring";
-
-  useLayoutEffect(() => {
-    const el = rootRef.current;
-    if (!el) return;
-    const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight });
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  useMotionValueEvent(pos, "change", (v) => {
-    const f = mod(Math.round(v), COUNT);
-    setFront((prev) => (prev === f ? prev : f));
-  });
-  // a new surah in front: start from its first ayah, unless a search (or the reader just left)
-  // asked for another; the same surah again (a re-run, a re-render) keeps its ayah
-  const handledFront = useRef<number | null>(null);
+  const [sheet, setSheet] = useState<{ s: number; a: number } | null>(null);
+  const grid = useRef<HTMLDivElement>(null);
+  // the surah the reader came from, brought into view (once)
   useEffect(() => {
-    if (handledFront.current === front) return;
-    const first = handledFront.current === null;
-    handledFront.current = front;
-    const p = pendingAyah.current;
-    if (p && p.surah === front + 1) {
-      setAyah(p.ayah);
-      pendingAyah.current = null;
-    } else if (!first) setAyah(1);
-  }, [front]);
-
-  const surah = surahs[front];
-  // (a surah just come to the front shows its own ayah from its first frame, not the last one's)
-  const shownAyah = handledFront.current === front ? ayah : pendingAyah.current?.surah === front + 1 ? pendingAyah.current.ayah : 1;
-
-  // geometry of the ring: pinned to the left edge, front card on the one-third line
-  const W = size.w, H = size.h;
-  const stageH = mobile ? H * 0.56 : H;
-  const top = mobile ? 52 : 0;
-  const cardW = mobile ? clamp(Math.min(W * 0.36, stageH * 0.46), 104, 150) : clamp(H * 0.3, 118, 178);
-  // "Continue", on a phone: at the foot, under the slider, where there is room for it (the search,
-  // the slider and their gaps end about 207px below the ring's stage); on a small phone, a line
-  // under "Surahs" instead
-  const resumable = !!(resume && surahs[resume.s - 1]);
-  const resumeAtFoot = !mobile || H * 0.44 - 207 >= 56;
-  const g: ReelGeometry = {
-    cx: 0,
-    cy: mobile ? (top + stageH - 40) / 2 : stageH / 2,
-    rx: mobile ? W * 0.5 : W / 3,
-    ry: stageH * (mobile ? 0.36 : 0.42),
-    cardW,
-    cardH: cardW * 1.4,
-    step: mobile ? 0.3 : 0.3,
-    minScale: 0.42,
-  };
-
-  /** turn the ring the short way round to a surah */
-  const turnTo = useCallback(
-    (n: number, then?: () => void) => {
-      const cur = pos.get();
-      const target = Math.round(cur) + (((n - 1 - mod(Math.round(cur), COUNT) + COUNT + COUNT / 2) % COUNT) - COUNT / 2);
-      const dist = Math.abs(target - cur);
-      animate(pos, target, {
-        duration: Math.min(1.1, 0.45 + dist * 0.03),
-        ease: EASE_OUT,
-        onComplete: then,
-      });
-    },
-    [pos],
-  );
-
-  const openFront = useCallback(
-    (a = ayah) => {
-      const card = stageRef.current?.querySelector<HTMLElement>(`[data-abs="${Math.round(pos.get())}"]`);
-      const root = rootRef.current?.getBoundingClientRect();
-      let from: Rect | undefined;
-      if (card && root) {
-        const c = card.getBoundingClientRect();
-        from = { left: c.left - root.left, top: c.top - root.top, width: c.width, height: c.height };
-      }
-      onOpen({ surah: mod(Math.round(pos.get()), COUNT) + 1, ayah: a, from });
-    },
-    [ayah, onOpen, pos],
-  );
+    if (view !== "ring") return;
+    const el = grid.current?.querySelector<HTMLElement>(`[data-s="${initialSurah}"]`);
+    el?.scrollIntoView({ block: "center" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
 
   const onPick = (r: Result) => {
-    if (r.kind === "surah") {
-      turnTo(r.surah.n);
-      return;
-    }
-    const n = r.surah.n;
-    const a = r.ayah;
-    if (mod(Math.round(pos.get()), COUNT) + 1 === n) {
-      setAyah(a);
-      openFront(a);
-      return;
-    }
-    pendingAyah.current = { surah: n, ayah: a };
-    turnTo(n, () => setTimeout(() => openFront(a), 160));
+    if (r.kind === "surah") setSheet({ s: r.surah.n, a: 1 });
+    else onOpen({ surah: r.surah.n, ayah: r.ayah });
   };
 
-  const previewTimer = useRef(0);
-  const onPreview = (s: Surah | null) => {
-    clearTimeout(previewTimer.current);
-    if (!s) return;
-    previewTimer.current = window.setTimeout(() => turnTo(s.n), 280);
-  };
-
-  // the right-click menu: the surah under the pointer (a card of the ring, a line of a list), then the index's own things
-  const onContextMenu = (e: React.MouseEvent) => {
-    const t = e.target as HTMLElement;
-    if (isLongPressMenu(e.nativeEvent) || t.closest("input, textarea")) return;
-    e.preventDefault();
-    const items: MenuItem[] = [];
-    if (ring) {
-      const cur = surahs[mod(Math.round(pos.get()), COUNT)];
-      const card = t.closest<HTMLElement>("[data-abs]");
-      const under = card ? surahs[mod(Number(card.dataset.abs), COUNT)] : null;
-      items.push({ type: "label", label: (under ?? cur).tc });
-      if (under && under.n !== cur.n) {
-        items.push({ type: "item", label: `Bring it forward`, onSelect: () => turnTo(under.n) });
-        items.push({ type: "item", label: `Open ${ayn(under.tc)}`, onSelect: () => turnTo(under.n, () => setTimeout(() => openFront(1), 160)) });
-      } else items.push({ type: "item", label: `Open at ayah ${ayah}`, hint: "Enter", onSelect: () => openFront() });
-      items.push({ type: "sep" });
-      items.push({ type: "item", label: "Next surah", hint: "↓", onSelect: () => turnTo((cur.n % 114) + 1) });
-      items.push({ type: "item", label: "Previous surah", hint: "↑", onSelect: () => turnTo(((cur.n + 112) % 114) + 1) });
-      items.push({ type: "item", label: "Search", onSelect: () => rootRef.current?.querySelector<HTMLInputElement>("input")?.focus() });
-    } else {
-      const line = t.closest<HTMLElement>("[data-index-list] button");
-      if (line) {
-        items.push({ type: "item", label: "Open", onSelect: () => line.click() });
-        items.push({ type: "sep" });
-      }
-      items.push({ type: "item", label: "All surahs", onSelect: () => setView("ring") });
-    }
-    if (resume && surahs[resume.s - 1]) items.push({ type: "item", label: `Continue · ${ayn(surahs[resume.s - 1].tc)} ${resume.s}:${resume.v}`, onSelect: () => onOpen({ surah: resume.s, ayah: resume.v }) });
-    items.push({ type: "sep" });
-    items.push({ type: "item", label: "Settings", onSelect: onSettings });
-    items.push({ type: "item", label: "About this reader", onSelect: () => useUI.getState().setAbout(true) });
-    useUI.getState().openMenu(e.clientX, e.clientY, items);
-  };
-
-  // a computer's keys (Settings → Guide lists them): the arrows turn the ring, Enter opens the surah in
-  // front at its ayah, / searches, C continues where the reader left off, a comma opens Settings
-  const keysNow = useRef<(e: KeyboardEvent) => void>(() => {});
-  keysNow.current = (e: KeyboardEvent) => {
-    const t = e.target as HTMLElement | null;
-    const ui = useUI.getState();
-    if (e.defaultPrevented || settingsOpen || ui.about || ui.menu || e.ctrlKey || e.metaKey || e.altKey || !ring) return;
-    // (where a field, the slider or the ring itself has the keys, they keep them)
-    if (t?.closest?.("input, textarea, [contenteditable], [role=slider], [role=listbox], [role=menu], [role=dialog]")) return;
-    const cur = surahs[mod(Math.round(pos.get()), COUNT)];
-    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-    if (k === "ArrowDown" || k === "ArrowRight") return e.preventDefault(), turnTo((cur.n % 114) + 1);
-    if (k === "ArrowUp" || k === "ArrowLeft") return e.preventDefault(), turnTo(((cur.n + 112) % 114) + 1);
-    if (k === "Enter" && !t?.closest?.("button, a")) return e.preventDefault(), openFront();
-    if (k === "/") return e.preventDefault(), rootRef.current?.querySelector<HTMLInputElement>("input")?.focus();
-    if (k === "c" && resume && resumable) return e.preventDefault(), onOpen({ surah: resume.s, ayah: resume.v });
-    if (k === ",") return e.preventDefault(), onSettings();
-  };
+  // keys: "/" to search, "c" to go on where the reading stopped, Escape to close the sheet
   useEffect(() => {
-    const on = (e: KeyboardEvent) => keysNow.current(e);
+    const on = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (e.defaultPrevented || t?.closest?.("input, textarea, [contenteditable='true']") || useUI.getState().about) return;
+      if (e.key === "Escape" && sheet) return setSheet(null);
+      if (e.key === "/") {
+        e.preventDefault();
+        document.querySelector<HTMLInputElement>(".surahs-search .search-input")?.focus();
+      }
+      if (e.key === "c" && resume) onOpen({ surah: resume.s, ayah: resume.v });
+    };
     window.addEventListener("keydown", on);
     return () => window.removeEventListener("keydown", on);
-  }, []);
+  }, [sheet, resume, onOpen]);
 
-  const colCenter = mobile ? W / 2 : (W * 2) / 3;
-  const colW = mobile ? W - 36 : clamp(W * 0.36, 300, 440);
+  const totalAyat = useMemo(() => surahs.reduce((n, s) => n + s.count, 0), [surahs]);
 
   return (
-    <motion.div
-      ref={rootRef}
-      className="relative h-full w-full"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0, transition: { duration: 0.35 } }}
-      transition={{ duration: 0.6, delay: 0.1 }}
-      onContextMenu={onContextMenu}
-    >
-      {/* top row (above the search and the ring: its index menu opens over them) */}
-      <div className="absolute inset-x-0 top-0 z-40 flex items-start justify-between px-5 pt-4 md:px-7 md:pt-5">
-        <div className="relative flex items-start gap-2">
-          <button
-            type="button"
-            onClick={onBack}
-            aria-label="Back to the first page"
-            title="Back to the first page"
-            className="-ml-2 -mt-[7px] flex h-9 w-9 shrink-0 items-center justify-center text-[var(--box-muted)] transition-colors hover:bg-[var(--box-hover)] hover:text-[var(--box-fg)]"
-          >
-            <ArrowLeft size={16} strokeWidth={1.6} />
-          </button>
-          <div className="relative">
-          <ViewPicker view={view} onChange={setView} />
-          {ring && resumable && !resumeAtFoot ? (
-            <button type="button" onClick={() => onOpen({ surah: resume!.s, ayah: resume!.v })} className="label mt-1 flex items-center gap-1.5 text-[var(--box-muted)] transition-colors hover:text-[var(--box-fg)]">
-              Continue {resume!.s}:{resume!.v} <span aria-hidden>→</span>
-            </button>
-          ) : (
-            <div className="label mt-1 text-[var(--box-faint)]">{ring ? `[${pad3(front + 1)} / 114]` : INDEX_VIEWS.find((v) => v.id === view)?.line}</div>
-          )}
+    <div className="relative h-full text-[var(--box-fg)]">
+      <div className="thin-scroll h-full overflow-y-auto overscroll-contain">
+        <div className={cn("mx-auto w-full max-w-[1180px] px-4 md:px-8 2xl:max-w-[1400px]", mobile ? "pb-[calc(100px+env(safe-area-inset-bottom))] pt-5" : "pb-12 pt-8")}>
+          <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h1 className="display text-[34px] leading-none md:text-[46px]">Surahs</h1>
+              <p className="mt-2 text-[14px] text-[var(--box-muted)]">
+                {surahs.length} surahs · {totalAyat.toLocaleString("en-GB")} ayat
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <SearchBox className="surahs-search min-w-0 flex-1 md:w-[360px] md:flex-none" surahs={surahs} juz={juz} onPick={onPick} />
+              {resume && surahs[resume.s - 1] && (
+                <button
+                  type="button"
+                  onClick={() => onOpen({ surah: resume.s, ayah: resume.v })}
+                  className="press flex h-12 shrink-0 items-center gap-2 rounded-full bg-[var(--box-fg)] pl-5 pr-2 text-[14px] font-medium text-[var(--box-bg-solid)]"
+                  aria-label={`Continue ${surahs[resume.s - 1].tc}, ayah ${resume.v}`}
+                  title="Continue where you left off (C)"
+                >
+                  {mobile ? "" : "Continue"} <span className="tabular-nums opacity-70">{resume.s}:{resume.v}</span>
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--box-bg-solid)] text-[var(--box-fg)]">
+                    <ArrowRight size={16} strokeWidth={2} />
+                  </span>
+                </button>
+              )}
+            </div>
+          </header>
+
+          {/* the ways into the Qur'an */}
+          <div className="no-scrollbar -mx-4 mt-6 flex gap-2 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:px-0" role="tablist" aria-label="Ways into the Qur'an">
+            {INDEX_VIEWS.map((v) => (
+              <button key={v.id} type="button" role="tab" aria-selected={view === v.id} onClick={() => setView(v.id)} className={cn("chip", view === v.id && "is-on")} title={v.line}>
+                {v.id === "ring" ? "All surahs" : v.name}
+              </button>
+            ))}
           </div>
-        </div>
-        {/* About and Settings set as on the cover (side by side, no gap but their own padding), the
-            gear's edge on the same line as the search and the Open button under it */}
-        <div className="flex h-[22px] items-center">
-          <BracketButton onClick={() => useUI.getState().setAbout(true)} title="About this reader">
-            About
-          </BracketButton>
-          {mobile ? (
-            <button type="button" onClick={onSettings} aria-label="Settings" title="Settings" className="-mr-3 flex h-9 w-9 items-center justify-center text-[var(--box-muted)] transition-colors hover:bg-[var(--box-hover)] hover:text-[var(--box-fg)]">
-              <SettingsGlyph open={settingsOpen} />
-            </button>
+
+          {view === "ring" ? (
+            <div ref={grid} className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 md:mt-6 md:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+              {surahs.map((s) => (
+                <SurahCard key={s.n} s={s} here={s.n === initialSurah} onClick={() => setSheet({ s: s.n, a: s.n === initialSurah ? initialAyah : 1 })} />
+              ))}
+            </div>
           ) : (
-            <BracketButton onClick={onSettings} active={settingsOpen} title="Settings">
-              Settings
-            </BracketButton>
+            <div className="card mt-5 p-5 md:mt-6 md:p-8">
+              <IndexView kind={view} surahs={surahs} juz={juz} onOpen={(s, a) => onOpen({ surah: s, ayah: a })} mobile={mobile} />
+            </div>
           )}
-          {!mobile && <Clock className="ml-3 text-[var(--box-muted)]" />}
         </div>
       </div>
 
-      {/* where the reader left off last time, one tap away */}
-      {ring && resume && resumable && resumeAtFoot && (
-        <motion.div
-          className={cn("pointer-events-none absolute inset-x-0 z-30 flex", mobile ? "justify-center px-5" : "justify-center px-24")}
-          // on a phone the top row is full and the ring rises to it: at the foot instead, under the slider
-          style={mobile ? { bottom: 14 } : { top: 18 }}
-          initial={{ opacity: 0, y: mobile ? 8 : -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.55, duration: 0.6, ease: EASE_OUT }}
-        >
-          <button
-            type="button"
-            onClick={() => onOpen({ surah: resume.s, ayah: resume.v })}
-            className="btn-secondary pill group pointer-events-auto flex h-9 min-w-0 items-center gap-2.5 border border-[var(--box-line)] bg-[var(--box-hover)] px-3.5 transition-colors hover:border-[var(--box-fg)]"
-            aria-label={`Continue reading ${ayn(surahs[resume.s - 1].tc)}, ayah ${resume.v}`}
-          >
-            <span className="label shrink-0 text-[var(--box-muted)]">Continue</span>
-            {!mobile && <span className="-my-[0.15em] truncate py-[0.15em] font-serif text-[15px] italic leading-[1.15]">{nameMarks(surahs[resume.s - 1].tc)}</span>}
-            <span className="label shrink-0 tabular-nums text-[var(--box-fg)]">
-              {resume.s}:{resume.v}
-            </span>
-            <span className="shrink-0 transition-transform duration-300 group-hover:translate-x-0.5">→</span>
-          </button>
-        </motion.div>
-      )}
-
-      {/* the other ways of seeing the index */}
-      <AnimatePresence mode="wait" initial={false}>
-        {!ring && (
-          <motion.div
-            key={view}
-            className="absolute inset-x-0 bottom-0 z-10"
-            style={{ top: mobile ? 66 : 82 }}
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8, transition: { duration: 0.18 } }}
-            transition={{ duration: 0.45, ease: EASE_OUT }}
-          >
-            <div data-index-list className="h-full">
-              <IndexView kind={view} surahs={surahs} juz={juz} onOpen={(s, a) => onOpen({ surah: s, ayah: a })} mobile={mobile} />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* the ring */}
-      {ring && W > 0 && (
-        <div
-          ref={stageRef}
-          className="absolute inset-0 z-10"
-          style={{
-            ...(mobile ? { top: 40, bottom: H - (top + stageH) } : { right: W - colCenter + colW / 2 + 24 }),
-            // cards surface from and sink back into depth at the top and bottom
-            maskImage: "linear-gradient(to bottom, transparent 0%, #000 14%, #000 86%, transparent 100%)",
-            WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, #000 14%, #000 86%, transparent 100%)",
-          }}
-        >
-          <HaloReel
-            className="h-full w-full"
-            label="Surahs"
-            count={COUNT}
-            pos={pos}
-            geometry={g}
-            visible={7}
-            renderCard={(i, isFront) => (
-              <div className="h-full w-full" style={{ fontSize: cardW / 15 }}>
-                <SurahCard surah={surahs[i]} front={isFront} />
-              </div>
-            )}
-            onCardClick={(_, isFront) => {
-              if (isFront) openFront();
-            }}
-          />
-        </div>
-      )}
-
-      {/* search, centred on the frame's middle, with the surah name above and the ayah slider below */}
-      {ring && W > 0 && surah && (
-        <div
-          className="absolute z-30"
-          style={
-            mobile
-              ? { left: 18, right: 18, top: top + stageH + 40 }
-              : { left: colCenter - colW / 2, width: colW, top: H / 2 - SEARCH_H / 2 }
-          }
-        >
-          {/* where it was revealed: halfway between the frame's top edge and the surah name */}
-          {!mobile && (
-            <motion.div
-              key={`place-${surah.n}`}
-              className="label pointer-events-none absolute left-0 right-0 text-center text-[var(--box-faint)]"
-              style={{ top: -(H / 2 - SEARCH_H / 2 - NAME_GAP - NAME_H) / 2 - NAME_GAP - NAME_H, transform: "translateY(-50%)" }}
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease: EASE_OUT }}
-            >
-              {surah.place === "makkah" ? "Makkan" : "Madinan"} · {surah.count} ayat
-            </motion.div>
-          )}
-          <motion.div
-            className="absolute bottom-full left-0 right-0 flex items-baseline justify-between gap-3"
-            style={{ marginBottom: NAME_GAP, height: NAME_H }}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35, duration: 0.7, ease: EASE_OUT }}
-          >
-            <span className="display -my-[0.18em] self-end truncate py-[0.18em] font-serif text-[22px] leading-[1.1] italic md:text-[26px]">{nameMarks(surah.tc)}</span>
-            <span className="flex shrink-0 items-baseline gap-3 self-end">
-              {mobile && <span className="label text-[var(--box-faint)]">{surah.place === "makkah" ? "Makkan" : "Madinan"}</span>}
-              <span className="font-kufi text-[18px] leading-none text-[var(--box-muted)]" dir="rtl">
-                {surah.ar}
-              </span>
-            </span>
-          </motion.div>
-
-          {/* above the slider below it, so the dropdown of results opens over it */}
-          <motion.div
-            className="relative z-20 flex flex-wrap items-start gap-2"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.7, ease: EASE_OUT }}
-          >
-            <SearchBox className="w-auto min-w-[150px] flex-1 basis-0" surahs={surahs} juz={juz} onPick={onPick} onPreview={onPreview} />
-            <button
-              type="button"
-              onClick={() => openFront()}
-              className="btn-primary group relative inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap border-2 border-[var(--box-fg)] px-3.5 transition-colors hover:bg-[var(--box-fg)] hover:text-[var(--box-bg-solid)]"
-              aria-label={`Open ${ayn(surah.tc)}, ayah ${shownAyah}`}
-            >
-              <span className="label">
-                Open {surah.n}:{shownAyah}
-              </span>
-              <span className="transition-transform duration-300 group-hover:translate-x-0.5">→</span>
-            </button>
-          </motion.div>
-
-          <motion.div
-            className="relative z-0 mt-7"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5, duration: 0.7, ease: EASE_OUT }}
-          >
-            <div className="mb-1 flex items-center justify-between">
-              <span className="label text-[var(--box-faint)]">Ayah</span>
-              <span className="label tabular-nums text-[var(--box-muted)]">
-                {shownAyah} / {surah.count}
-              </span>
-            </div>
-            <AyahSlider key={surah.n} value={Math.min(shownAyah, surah.count)} max={surah.count} onChange={setAyah} />
-          </motion.div>
-        </div>
-      )}
-      {ring && !mobile && <DotField className="absolute bottom-6 right-6 text-[var(--box-muted)]" cols={10} rows={7} />}
-    </motion.div>
-  );
-}
-
-/** "Surahs ▾": the ring of surahs, or the index seen another way */
-function ViewPicker({ view, onChange }: { view: IndexKind; onChange: (v: IndexKind) => void }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const down = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("pointerdown", down, true);
-    window.addEventListener("keydown", key);
-    return () => {
-      window.removeEventListener("pointerdown", down, true);
-      window.removeEventListener("keydown", key);
-    };
-  }, [open]);
-  const cur = INDEX_VIEWS.find((v) => v.id === view)!;
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className="flex h-[22px] items-center gap-1.5 text-[13px] text-[var(--box-fg)] transition-colors hover:text-[var(--color-gold)]"
-      >
-        {cur.name}
-        <ChevronDown size={13} strokeWidth={1.8} className={cn("transition-transform duration-300", open && "rotate-180")} />
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            role="menu"
-            aria-label="See the index by"
-            className="theme-pop absolute left-0 top-[calc(100%+8px)] z-40 w-[264px] border border-[var(--box-line)] bg-[var(--box-bg-solid)] p-1.5 shadow-[0_18px_50px_-14px_rgba(0,0,0,0.7)]"
-            initial={{ opacity: 0, y: -6, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, transition: { duration: 0.12 } }}
-            transition={{ duration: 0.22, ease: EASE_OUT }}
-          >
-            <div className="label px-2 pb-1.5 pt-1 text-[var(--box-faint)]">See the index by</div>
-            {INDEX_VIEWS.map((v) => (
-              <button
-                key={v.id}
-                type="button"
-                role="menuitemradio"
-                aria-checked={v.id === view}
-                onClick={() => {
-                  onChange(v.id);
-                  setOpen(false);
-                }}
-                className={cn("flex w-full items-start gap-2.5 px-2 py-2 text-left transition-colors hover:bg-[var(--box-hover)]", v.id === view && "bg-[var(--box-hover)]")}
-              >
-                <span className={cn("mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center", v.id === view ? "text-[var(--color-gold)]" : "text-transparent")}>
-                  <Check size={13} strokeWidth={2.4} />
-                </span>
-                <span className="flex min-w-0 flex-col">
-                  <span className="text-[13.5px] leading-tight text-[var(--box-fg)]">{v.name}</span>
-                  <span className="label-sm mt-0.5 text-[var(--box-faint)]">{v.line}</span>
-                </span>
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <AyahSheet at={sheet} surahs={surahs} mobile={mobile} onClose={() => setSheet(null)} onOpen={(s, a) => onOpen({ surah: s, ayah: a })} />
     </div>
   );
 }
 
+/** A surah's card: its number, its name in Arabic and in English, its ayat and where it came down. */
+function SurahCard({ s, here, onClick }: { s: Surah; here: boolean; onClick: () => void }) {
+  const c = surahColor(s.n);
+  return (
+    <button
+      type="button"
+      data-s={s.n}
+      onClick={onClick}
+      aria-label={`${s.tc}, ${s.en}: ${s.count} ayat`}
+      className={cn("card-tint press-soft group relative flex aspect-[4/5] flex-col justify-between overflow-hidden p-3.5 text-left sm:p-4 md:p-5", here && "ring-2 ring-[var(--box-fg)] ring-offset-2 ring-offset-[var(--box-bg)]")}
+      style={{ background: c.bg }}
+    >
+      <span className="flex items-start justify-between">
+        <span className="flex h-8 min-w-8 items-center justify-center rounded-full bg-white/60 px-2 text-[12.5px] font-medium tabular-nums">{s.n}</span>
+        <span className="font-kufi text-[24px] leading-none md:text-[28px]" dir="rtl" lang="ar">
+          {s.ar}
+        </span>
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-[17px] font-semibold leading-tight tracking-[-0.01em] md:text-[19px]">{nameMarks(s.tc)}</span>
+        <span className="mt-0.5 block truncate text-[13px] opacity-65">{s.en}</span>
+        <span className="mt-3 flex flex-wrap items-center gap-1 text-[11.5px] font-medium opacity-75 sm:gap-1.5 sm:text-[12px]">
+          <span className="whitespace-nowrap rounded-full bg-white/55 px-2 py-0.5">{s.count} ayat</span>
+          <span className="whitespace-nowrap rounded-full bg-white/55 px-2 py-0.5">{s.place === "makkah" ? "Makkan" : "Madinan"}</span>
+        </span>
+      </span>
+    </button>
+  );
+}
+
+/**
+ * A surah chosen: a sheet rising from the foot of a phone (a card in the middle of a computer's
+ * panel), to begin it, or to slide to the ayah to begin at.
+ */
+function AyahSheet({ at, surahs, mobile, onClose, onOpen }: { at: { s: number; a: number } | null; surahs: Surah[]; mobile: boolean; onClose: () => void; onOpen: (s: number, a: number) => void }) {
+  const [ayah, setAyah] = useState(1);
+  useEffect(() => {
+    if (at) setAyah(at.a);
+  }, [at]);
+  const s = at ? surahs[at.s - 1] : null;
+  const c = at ? surahColor(at.s) : null;
+  const instant = byKeys();
+  // (on the page itself, above the panel and the phone's navigation pill: inside the panel it sat under the pill)
+  return createPortal(
+    <AnimatePresence>
+      {at && s && c && (
+        <motion.div key="sheet" className="fixed inset-0 z-[70] flex items-end justify-center md:items-center" initial={{ opacity: 1 }} exit={{ opacity: 1, transition: { duration: instant ? 0 : 0.2 } }}>
+          <motion.button
+            type="button"
+            aria-label="Close"
+            className="absolute inset-0 bg-black/30"
+            onClick={onClose}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: instant ? 0 : 0.2 }}
+          />
+          <motion.div
+            role="dialog"
+            aria-label={`${s.tc}: choose where to begin`}
+            className={cn("relative w-full overflow-hidden bg-[var(--surface)] p-5 md:max-w-[440px] md:rounded-[30px] md:p-6", mobile ? "rounded-t-[30px] pb-[calc(20px+env(safe-area-inset-bottom))]" : "")}
+            initial={mobile ? { y: "100%" } : { opacity: 0, scale: 0.96 }}
+            animate={mobile ? { y: 0 } : { opacity: 1, scale: 1 }}
+            exit={mobile ? { y: "100%" } : { opacity: 0, scale: 0.97 }}
+            transition={{ duration: instant ? 0 : mobile ? 0.32 : 0.2, ease: [0.32, 0.72, 0, 1] }}
+            onKeyDown={(e) => e.key === "Enter" && !(e.target as HTMLElement).closest("button") && onOpen(s.n, ayah)}
+          >
+            {mobile && <span className="mx-auto mb-4 block h-1.5 w-10 rounded-full bg-[var(--box-line)]" aria-hidden />}
+            <div className="card-tint flex items-center justify-between gap-4 p-5" style={{ background: c.bg }}>
+              <span className="min-w-0">
+                <span className="block truncate text-[22px] font-semibold tracking-[-0.015em]">{nameMarks(s.tc)}</span>
+                <span className="mt-0.5 block text-[13px] opacity-65">
+                  {s.en} · {s.count} ayat
+                </span>
+              </span>
+              <span className="font-kufi text-[32px] leading-none" dir="rtl" lang="ar">
+                {s.ar}
+              </span>
+            </div>
+            <button type="button" onClick={onClose} aria-label="Close" className="circle-btn is-sm absolute right-4 top-4 hidden md:inline-flex">
+              <X size={16} strokeWidth={2} />
+            </button>
+            <div className="mt-5 flex items-center justify-between text-[13px] text-[var(--box-muted)]">
+              <span>Begin at ayah</span>
+              <span className="tabular-nums text-[var(--box-fg)]">
+                {ayah} of {s.count}
+              </span>
+            </div>
+            <div className="mt-1">
+              <AyahSlider key={s.n} value={Math.min(ayah, s.count)} max={s.count} onChange={setAyah} />
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button type="button" onClick={() => onOpen(s.n, 1)} className="press flex h-12 flex-1 items-center justify-center rounded-full border border-[var(--box-line)] text-[14.5px] font-medium">
+                From the start
+              </button>
+              <button type="button" onClick={() => onOpen(s.n, ayah)} className="press flex h-12 flex-[1.3] items-center justify-center gap-2 rounded-full bg-[var(--box-fg)] text-[14.5px] font-medium text-[var(--box-bg-solid)]" autoFocus={!mobile}>
+                Read from {s.n}:{ayah} <ArrowRight size={16} strokeWidth={2} />
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
+    document.body,
+  );
+}

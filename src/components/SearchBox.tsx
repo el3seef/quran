@@ -206,9 +206,7 @@ function ResultBody({ r }: { r: Result }) {
           {r.surah.n}:{r.ayah}
         </span>{" "}
         <span className="font-serif text-[16px] italic">{nameMarks(r.surah.tc)}</span>{" "}
-        <span className="label-sm text-[var(--box-muted)]">
-          ayah {r.ayah} of {r.surah.count}
-        </span>
+        <span className="label-sm text-[var(--box-muted)]">{r.why ?? `ayah ${r.ayah} of ${r.surah.count}`}</span>
       </span>
     );
   if (r.kind === "juz")
@@ -241,6 +239,7 @@ function ResultBody({ r }: { r: Result }) {
         {r.surah.n}:{r.ayah}
       </span>{" "}
       <span className="label-sm text-[var(--box-muted)]">{nameMarks(r.surah.tc)}</span>
+      {r.why && <span className="label-sm ml-2 text-[var(--box-faint)]">{r.why}</span>}
       <span className="mt-0.5 block font-serif text-[14.5px] leading-snug text-[var(--box-muted)]" dir="auto">
         {parts}
       </span>

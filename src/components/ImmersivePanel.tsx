@@ -1,16 +1,15 @@
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 import type { ReactNode } from "react";
-import { Settings } from "lucide-react";
 import { EASE_IN_OUT, EASE_OUT, cn } from "@/lib/utils";
-import { useStore } from "@/lib/store";
+import { byKeys } from "@/lib/motion";
 
 /**
- * A panel that covers the whole frame the way the reference navigation does:
- * a clip-path wipe from one side, then its contents reveal in sequence.
+ * A panel over the page (Settings, the search, what is saved…): it rises a few pixels into place as it
+ * fades in, quickly, and its contents follow a beat apart; it leaves faster than it came. Opened from
+ * the keyboard it is simply there, and so is closing it.
  */
 export function ImmersivePanel({
   open,
-  from = "left",
   onClose,
   children,
   className,
@@ -23,32 +22,7 @@ export function ImmersivePanel({
   className?: string;
   label: string;
 }) {
-  const hidden = from === "left" ? "inset(0 100% 0 0)" : "inset(0 0 0 100%)";
-  const gone = from === "left" ? "inset(0 0 0 100%)" : "inset(0 100% 0 0)";
-  // Sajjadah wipes a panel across the frame; Paper lays a sheet over it; Lunar's rises out of the dark
-  const theme = useStore((s) => s.settings.theme);
-  const motionOf = theme === "paper"
-    ? {
-        // a sheet laid down over the page: slid in a little askew, settling straight
-        initial: { opacity: 0, x: from === "left" ? -36 : 36, y: 12, rotate: from === "left" ? -1.4 : 1.4 },
-        animate: { opacity: 1, x: 0, y: 0, rotate: 0 },
-        exit: { opacity: 0, y: 18, rotate: from === "left" ? 0.8 : -0.8, transition: { duration: 0.32, ease: EASE_IN_OUT } },
-        transition: { duration: 0.55, ease: EASE_OUT },
-      }
-    : theme === "lunar"
-    ? {
-        // rising slowly out of the dark, like the moon
-        initial: { opacity: 0, y: 26, filter: "blur(8px)" },
-        animate: { opacity: 1, y: 0, filter: "blur(0px)" },
-        exit: { opacity: 0, y: 12, filter: "blur(6px)", transition: { duration: 0.4, ease: EASE_OUT } },
-        transition: { duration: 0.85, ease: EASE_OUT },
-      }
-    : {
-        initial: { clipPath: hidden },
-        animate: { clipPath: "inset(0 0 0 0)" },
-        exit: { clipPath: gone, transition: { duration: 0.6, ease: EASE_IN_OUT, delay: 0.05 } },
-        transition: { duration: 0.75, ease: EASE_IN_OUT },
-      };
+  const instant = byKeys();
   return (
     <AnimatePresence>
       {open && (
@@ -58,7 +32,12 @@ export function ImmersivePanel({
           aria-modal="true"
           aria-label={label}
           className={cn("dark-scope frame-radius-in absolute inset-[3px] z-40 overflow-hidden bg-[var(--panel-bg)] text-[var(--box-fg)]", className)}
-          {...motionOf}
+          // (on a phone in the reader, down over the strip under the page too: Frame --frame-below)
+          style={{ bottom: "calc(3px - var(--frame-below, 0px))", paddingBottom: "env(safe-area-inset-bottom)" }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 6, transition: { duration: instant ? 0 : 0.16, ease: EASE_OUT } }}
+          transition={{ duration: instant ? 0 : 0.24, ease: EASE_OUT }}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
               e.stopPropagation();
@@ -66,13 +45,12 @@ export function ImmersivePanel({
             }
           }}
         >
-          <div className="grain-local" />
           <motion.div
             className="relative h-full"
             initial="hidden"
             animate="show"
             exit="hide"
-            variants={{ show: { transition: { delayChildren: 0.42, staggerChildren: 0.075 } }, hide: { transition: { staggerChildren: 0.02, staggerDirection: -1 } } }}
+            variants={{ show: { transition: instant ? {} : { delayChildren: 0.05, staggerChildren: 0.035 } }, hide: {} }}
           >
             {children}
           </motion.div>
@@ -84,9 +62,9 @@ export function ImmersivePanel({
 
 /** Child that takes part in the panel's staged reveal. */
 export const reveal: Variants = {
-  hidden: { opacity: 0, y: 18, filter: "blur(6px)" },
-  show: { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.6, ease: EASE_OUT } },
-  hide: { opacity: 0, y: -8, transition: { duration: 0.2 } },
+  hidden: { opacity: 0, y: 6 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.24, ease: EASE_OUT } },
+  hide: { opacity: 0, transition: { duration: 0.12 } },
 };
 
 export function Reveal({ children, className, as = "div" }: { children: ReactNode; className?: string; as?: "div" | "li" | "section" }) {
@@ -98,15 +76,6 @@ export function Reveal({ children, className, as = "div" }: { children: ReactNod
   );
 }
 
-/** Settings on a phone: a gear, turning a quarter while its panel is open. */
-export function SettingsGlyph({ open, size = 17 }: { open: boolean; size?: number }) {
-  return (
-    <motion.span className="block" aria-hidden animate={{ rotate: open ? 90 : 0 }} transition={{ duration: 0.5, ease: EASE_IN_OUT }}>
-      <Settings size={size} strokeWidth={1.5} />
-    </motion.span>
-  );
-}
-
 /** The two-line menu icon that folds into a cross, as in the reference. */
 export function MenuGlyph({ open, lines = 2 }: { open: boolean; lines?: 2 | 3 }) {
   return (
@@ -114,7 +83,7 @@ export function MenuGlyph({ open, lines = 2 }: { open: boolean; lines?: 2 | 3 })
       <motion.span
         className="absolute left-0 top-[2px] h-px w-4 bg-current"
         animate={open ? { rotate: 45, y: 4 } : { rotate: 0, y: 0 }}
-        transition={{ duration: 0.4, ease: EASE_IN_OUT }}
+        transition={{ duration: 0.22, ease: EASE_IN_OUT }}
       />
       {lines === 3 && (
         <motion.span className="absolute left-0 top-[6px] h-px w-4 bg-current" animate={{ opacity: open ? 0 : 1 }} />
@@ -122,7 +91,7 @@ export function MenuGlyph({ open, lines = 2 }: { open: boolean; lines?: 2 | 3 })
       <motion.span
         className="absolute left-0 top-[10px] h-px w-4 bg-current"
         animate={open ? { rotate: -45, y: -4 } : { rotate: 0, y: 0 }}
-        transition={{ duration: 0.4, ease: EASE_IN_OUT }}
+        transition={{ duration: 0.22, ease: EASE_IN_OUT }}
       />
     </span>
   );

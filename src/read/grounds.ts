@@ -1,7 +1,5 @@
-import type { ThemeId } from "@/lib/themes";
-
 /**
- * What a shared ayah is laid on: for each theme a few old paintings (public domain, from museums'
+ * What a shared ayah is laid on: a few old paintings (public domain, from museums'
  * open collections: public/art, credited in About) and a few painted here, in code, as brushwork.
  * No figures, no animals. Each ground says where its words may sit (`spots`, the calm parts of it)
  * and in what ink, so whatever the reader picks, the words read and nothing important is covered.
@@ -10,7 +8,7 @@ export type Spot = { id: "top" | "middle" | "bottom"; box: [number, number, numb
 export type Ground = {
   id: string;
   name: string;
-  theme: ThemeId;
+  set: "warm" | "light" | "night"; // (the set it was made in: warm reds, pale paper, the night)
   art?: { src: string; focus: [number, number]; by: string };
   paint?: (g: CanvasRenderingContext2D, W: number, H: number, seed: number) => void;
   ink: "light" | "dark";
@@ -404,23 +402,24 @@ function rug(g: CanvasRenderingContext2D, W: number, H: number, seed: number) {
 /* ── the grounds, by theme: the first is the one a share opens on ── */
 const GROUNDS: Ground[] = [
   // Sajjadah
-  { id: "rug", name: "Sajjadah", theme: "crimson", paint: rug, ink: "light", tone: LIGHT, font: "amiri", spots: [{ id: "middle", box: [0.4, 0.16, 0.95, 0.84] }, { id: "top", box: [0.4, 0.08, 0.95, 0.52] }, { id: "bottom", box: [0.4, 0.48, 0.95, 0.92] }] },
-  { id: "church-twilight", name: "Twilight", theme: "crimson", art: { src: "art/church-twilight.jpg", focus: [0.55, 0.38], by: "Frederic Edwin Church, Twilight in the Wilderness (1860)" }, ink: "light", tone: LIGHT, font: "amiri", spots: [TOP, MIDDLE] },
-  { id: "kuindzhi-red-sunset", name: "Red sunset", theme: "crimson", art: { src: "art/kuindzhi-red-sunset.jpg", focus: [0.5, 0.45], by: "Arkhip Kuindzhi, Red Sunset on the Dnieper (1905–08)" }, ink: "light", tone: LIGHT, font: "amiri", spots: [BOTTOM, TOP] },
-  { id: "ember", name: "Ember", theme: "crimson", paint: swirl(["#1a0305", "#4a0a10", "#86202a", "#c26a3a", "#e8b870"], 0.5, 0.42, "rgba(255,210,150,0.35)"), ink: "light", tone: LIGHT, font: "cormorant", spots: [MIDDLE, BOTTOM] },
-  { id: "dusk", name: "Dusk", theme: "crimson", paint: dusk, ink: "light", tone: LIGHT, font: "amiri", spots: [TOP, MIDDLE] },
+  { id: "rug", name: "Sajjadah", set: "warm", paint: rug, ink: "light", tone: LIGHT, font: "amiri", spots: [{ id: "middle", box: [0.4, 0.16, 0.95, 0.84] }, { id: "top", box: [0.4, 0.08, 0.95, 0.52] }, { id: "bottom", box: [0.4, 0.48, 0.95, 0.92] }] },
+  { id: "church-twilight", name: "Twilight", set: "warm", art: { src: "art/church-twilight.jpg", focus: [0.55, 0.38], by: "Frederic Edwin Church, Twilight in the Wilderness (1860)" }, ink: "light", tone: LIGHT, font: "amiri", spots: [TOP, MIDDLE] },
+  { id: "kuindzhi-red-sunset", name: "Red sunset", set: "warm", art: { src: "art/kuindzhi-red-sunset.jpg", focus: [0.5, 0.45], by: "Arkhip Kuindzhi, Red Sunset on the Dnieper (1905–08)" }, ink: "light", tone: LIGHT, font: "amiri", spots: [BOTTOM, TOP] },
+  { id: "ember", name: "Ember", set: "warm", paint: swirl(["#1a0305", "#4a0a10", "#86202a", "#c26a3a", "#e8b870"], 0.5, 0.42, "rgba(255,210,150,0.35)"), ink: "light", tone: LIGHT, font: "cormorant", spots: [MIDDLE, BOTTOM] },
+  { id: "dusk", name: "Dusk", set: "warm", paint: dusk, ink: "light", tone: LIGHT, font: "amiri", spots: [TOP, MIDDLE] },
   // Paper
-  { id: "constable-clouds", name: "Clouds", theme: "paper", art: { src: "art/constable-clouds.jpg", focus: [0.45, 0.4], by: "John Constable, Cloud Study (c. 1822)" }, ink: "dark", tone: INK, font: "fraunces", spots: [MIDDLE, TOP, BOTTOM] },
-  { id: "ink", name: "Ink", theme: "paper", paint: inkWash, ink: "dark", tone: INK, font: "fraunces", spots: [TOP, MIDDLE] },
-  { id: "constable-storm-clouds", name: "Storm clouds", theme: "paper", art: { src: "art/constable-storm-clouds.jpg", focus: [0.5, 0.45], by: "John Constable, Cloud Study (1822)" }, ink: "light", tone: LIGHT, font: "cormorant", spots: [MIDDLE, TOP] },
-  { id: "sepia", name: "Sepia", theme: "paper", paint: swirl(["#2a241c", "#5a4e3e", "#8f8068", "#c9bca2", "#efe6d2"], 0.58, 0.36, "rgba(255,248,230,0.35)"), ink: "light", tone: LIGHT, font: "cormorant", spots: [BOTTOM, MIDDLE] },
+  { id: "constable-clouds", name: "Clouds", set: "light", art: { src: "art/constable-clouds.jpg", focus: [0.45, 0.4], by: "John Constable, Cloud Study (c. 1822)" }, ink: "dark", tone: INK, font: "fraunces", spots: [MIDDLE, TOP, BOTTOM] },
+  { id: "ink", name: "Ink", set: "light", paint: inkWash, ink: "dark", tone: INK, font: "fraunces", spots: [TOP, MIDDLE] },
+  { id: "constable-storm-clouds", name: "Storm clouds", set: "light", art: { src: "art/constable-storm-clouds.jpg", focus: [0.5, 0.45], by: "John Constable, Cloud Study (1822)" }, ink: "light", tone: LIGHT, font: "cormorant", spots: [MIDDLE, TOP] },
+  { id: "sepia", name: "Sepia", set: "light", paint: swirl(["#2a241c", "#5a4e3e", "#8f8068", "#c9bca2", "#efe6d2"], 0.58, 0.36, "rgba(255,248,230,0.35)"), ink: "light", tone: LIGHT, font: "cormorant", spots: [BOTTOM, MIDDLE] },
   // Lunar
-  { id: "kuindzhi-moonlit", name: "Moonlit", theme: "lunar", art: { src: "art/kuindzhi-moonlit.jpg", focus: [0.46, 0.3], by: "Arkhip Kuindzhi, Moonlit Night on the Dnieper (1880)" }, ink: "light", tone: SILVER, font: "cormorant", spots: [MIDDLE, BOTTOM] },
-  { id: "night-sea", name: "Night sea", theme: "lunar", paint: nightSea, ink: "light", tone: SILVER, font: "cormorant", spots: [MIDDLE, TOP] },
-  { id: "homer-storm-morning", name: "After the storm", theme: "lunar", art: { src: "art/homer-storm-morning.jpg", focus: [0.5, 0.45], by: "Winslow Homer, Early Morning After a Storm at Sea (1900–02)" }, ink: "light", tone: SILVER, font: "jost", spots: [TOP, MIDDLE] },
-  { id: "vortex", name: "Vortex", theme: "lunar", paint: swirl(["#05080f", "#141f33", "#3a4c68", "#8a9cb4", "#e4ebf3"], 0.5, 0.38, "rgba(235,242,250,0.4)"), ink: "light", tone: SILVER, font: "cormorant", spots: [BOTTOM, MIDDLE] },
+  { id: "kuindzhi-moonlit", name: "Moonlit", set: "night", art: { src: "art/kuindzhi-moonlit.jpg", focus: [0.46, 0.3], by: "Arkhip Kuindzhi, Moonlit Night on the Dnieper (1880)" }, ink: "light", tone: SILVER, font: "cormorant", spots: [MIDDLE, BOTTOM] },
+  { id: "night-sea", name: "Night sea", set: "night", paint: nightSea, ink: "light", tone: SILVER, font: "cormorant", spots: [MIDDLE, TOP] },
+  { id: "homer-storm-morning", name: "After the storm", set: "night", art: { src: "art/homer-storm-morning.jpg", focus: [0.5, 0.45], by: "Winslow Homer, Early Morning After a Storm at Sea (1900–02)" }, ink: "light", tone: SILVER, font: "jost", spots: [TOP, MIDDLE] },
+  { id: "vortex", name: "Vortex", set: "night", paint: swirl(["#05080f", "#141f33", "#3a4c68", "#8a9cb4", "#e4ebf3"], 0.5, 0.38, "rgba(235,242,250,0.4)"), ink: "light", tone: SILVER, font: "cormorant", spots: [BOTTOM, MIDDLE] },
 ];
-export const groundsOf = (t: ThemeId) => GROUNDS.filter((g) => g.theme === t);
+/** All the grounds, the paler ones first (the site's own look is paper): the reader chooses among them all. */
+export const groundsOf = () => [...GROUNDS.filter((g) => g.set === "light"), ...GROUNDS.filter((g) => g.set !== "light")];
 
 /** a painting's image, fetched once */
 const images = new Map<string, Promise<HTMLImageElement>>();

@@ -35,7 +35,7 @@ export function AboutPanel({ open, onClose }: { open: boolean; onClose: () => vo
                 <Book name="Saheeh International" by="the quranproject.org edition" />
                 <Book name="The Clear Quran" by="Dr. Mustafa Khattab, the 2017 edition" />
                 <Book name="The Arabic" by="the Madani mushaf of the King Fahd Complex, and the Indo-Pak script">
-                  Word meanings from quran.com. As a book, the Arabic keeps the lines of the Madani mushaf's 15-line print, as quran.com sets them.
+                  Word meanings from quran.com. As a book, the Arabic is the Madani mushaf's 15-line print itself, page by page, drawn in the King Fahd Complex's own fonts for each page (QCF V2, served by quran.com).
                 </Book>
                 <Book name="Transliteration" by="alquran.cloud (en.transliteration)" />
               </ul>

@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { sfx } from "@/lib/sound";
 import { get, set, del } from "idb-keyval";
-import { Mic, Pause, Play, Square, Trash2 } from "lucide-react";
-import { ImmersivePanel, MenuGlyph, Reveal } from "@/components/ImmersivePanel";
+import { Mic, Pause, Play, Square, Trash2, X } from "lucide-react";
+import { ImmersivePanel, Reveal } from "@/components/ImmersivePanel";
 import { useStore, type Recording } from "@/lib/store";
 import type { Surah } from "@/lib/data";
 import { pad3 } from "@/lib/data";
-import { SurahArt } from "@/components/SurahCard";
+import { surahColor } from "@/lib/surahColor";
 import { cn, uid } from "@/lib/utils";
 import { ayn, nameMarks } from "@/lib/names";
 
@@ -42,47 +42,47 @@ export function ReflectionPanel({ open, onClose, surah, mobile }: { open: boolea
   return (
     <ImmersivePanel open={open} from="right" onClose={onClose} label={`Reflection on ${ayn(surah.tc)}`}>
       <div className="flex h-full flex-col">
-        <div className="flex items-start justify-between px-5 pt-4 md:px-8 md:pt-6">
+        <div className="flex h-[64px] shrink-0 items-center justify-between gap-3 px-4 md:h-[76px] md:px-6">
           <Reveal>
-            <div className="label text-[var(--box-faint)]">Reflection · {pad3(surah.n)}</div>
-            <div className="mt-1 text-[13px] text-[var(--box-muted)]">What this surah left with you.</div>
+            <div className="text-[20px] font-semibold leading-tight tracking-[-0.02em] md:text-[22px]">Reflection</div>
+            <div className="text-[12.5px] text-[var(--box-muted)]">What this surah left with you</div>
           </Reveal>
-          <button type="button" onClick={onClose} aria-label="Close reflection" className="flex h-9 w-9 items-center justify-center text-[var(--box-fg)] hover:bg-[var(--box-hover)]">
-            <MenuGlyph open />
+          <button type="button" onClick={onClose} aria-label="Close reflection" className={cn("circle-btn", mobile && "is-md")}>
+            <X size={18} strokeWidth={1.9} />
           </button>
         </div>
 
-        <div className="thin-scroll grid flex-1 grid-cols-1 gap-8 overflow-y-auto px-5 pb-6 pt-6 md:grid-cols-[1.1fr_1fr] md:gap-12 md:px-8 md:pt-8">
-          <div className="flex flex-col gap-7">
-            <Reveal className="flex items-end gap-4">
-              <div className="relative h-24 w-[68px] shrink-0 overflow-hidden md:h-28 md:w-20">
-                <SurahArt n={surah.n} blur={6} />
-              </div>
-              <div>
-                <div className="font-kufi text-[28px] leading-none md:text-[34px]" dir="rtl">
+        <div className="thin-scroll grid min-h-0 flex-1 grid-cols-1 content-start gap-3 overflow-y-auto px-3 pb-3 md:grid-cols-[1.15fr_1fr] md:gap-4 md:px-5 md:pb-4">
+          <div className="flex min-w-0 flex-col gap-3 md:gap-4">
+            <Reveal>
+              <div className="card-tint flex items-center justify-between gap-4 px-5 py-4 md:px-6 md:py-5" style={{ background: surahColor(surah.n).bg }}>
+                <div className="min-w-0" style={{ color: "#111113" }}>
+                  <div className="text-[12.5px] font-medium opacity-65">Surah {pad3(surah.n)}</div>
+                  <div className="truncate text-[24px] font-semibold leading-tight tracking-[-0.02em] md:text-[28px]">{nameMarks(surah.tc)}</div>
+                  <div className="mt-0.5 text-[13px] opacity-70">
+                    {surah.en} · {surah.count} ayat
+                  </div>
+                </div>
+                <div className="shrink-0 font-kufi text-[30px] leading-none text-[#111113] md:text-[36px]" dir="rtl" lang="ar">
                   {surah.ar}
                 </div>
-                <div className="display mt-2 font-serif text-[30px] leading-none italic md:text-[40px]">{nameMarks(surah.tc)}</div>
-                <div className="label mt-2 text-[var(--box-muted)]">{surah.en} · {surah.count} ayat</div>
               </div>
             </Reveal>
-            <Reveal>
+            <Reveal className="card flex flex-col gap-6 px-5 py-5 md:px-6">
               <Field label="Summary" value={summary} onChange={setSummary} rows={mobile ? 4 : 5} hint="What is the surah about?" />
-            </Reveal>
-            <Reveal>
               <Field label="Lessons learned" value={lessons} onChange={setLessons} rows={mobile ? 4 : 5} hint="What will you carry into your day?" />
             </Reveal>
           </div>
-          <Reveal className="flex flex-col">
+          <Reveal className="flex min-w-0 flex-col">
             <Recorder surah={surah.n} />
           </Reveal>
         </div>
 
-        <Reveal className="flex items-center justify-between border-t border-[var(--box-line)] px-5 py-3 md:px-8">
-          <span className="label text-[var(--box-faint)]">
+        <Reveal className="flex shrink-0 items-center justify-between gap-3 px-5 pb-3 pt-1 md:px-6 md:pb-4">
+          <span className="text-[12.5px] text-[var(--box-faint)]">
             {saved ? `Saved on this device · ${saved.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Saved on this device as you type"}
           </span>
-          <button type="button" onClick={onClose} className="label border border-[var(--box-fg)] px-3 py-1.5 transition-colors hover:bg-[var(--box-fg)] hover:text-[var(--panel-bg)]">
+          <button type="button" onClick={onClose} className="btn-primary flex h-11 shrink-0 items-center px-6 text-[14px] font-medium">
             Done
           </button>
         </Reveal>
@@ -95,15 +95,15 @@ function Field({ label, value, onChange, rows, hint }: { label: string; value: s
   return (
     <label className="block">
       <span className="flex items-baseline justify-between">
-        <span className="text-[13px] text-[var(--box-fg)]">{label}</span>
-        <span className="label-sm text-[var(--box-faint)]">{value.trim() ? `${value.trim().split(/\s+/).length} words` : ""}</span>
+        <span className="text-[14px] font-medium text-[var(--box-fg)]">{label}</span>
+        <span className="text-[12px] text-[var(--box-faint)]">{value.trim() ? `${value.trim().split(/\s+/).length} words` : ""}</span>
       </span>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
         placeholder={hint}
-        className="mt-2 w-full resize-none border-b border-[var(--box-line)] bg-transparent pb-2 font-serif text-[18px] leading-[1.6] text-[var(--box-fg)] outline-none transition-colors placeholder:text-[var(--box-faint)] focus:border-[var(--color-gold)]"
+        className="mt-2 w-full resize-none rounded-2xl bg-[var(--box-hover)] px-4 py-3 text-[16px] leading-[1.6] text-[var(--box-fg)] outline-none transition-shadow placeholder:text-[var(--box-faint)] focus:shadow-[0_0_0_2px_var(--box-fg)]"
         dir="auto"
       />
     </label>
@@ -196,10 +196,10 @@ function Recorder({ surah }: { surah: number }) {
   };
 
   return (
-    <div className="flex h-full flex-col border border-[var(--box-line)] p-4 md:p-5">
+    <div className="card flex h-full min-h-[220px] flex-col px-5 py-5 md:px-6">
       <div className="flex items-baseline justify-between">
-        <span className="text-[13px]">Voice</span>
-        <span className="label-sm text-[var(--box-faint)]">{recordings.length} recording{recordings.length === 1 ? "" : "s"}</span>
+        <span className="text-[14px] font-medium">Voice</span>
+        <span className="text-[12px] text-[var(--box-faint)]">{recordings.length} recording{recordings.length === 1 ? "" : "s"}</span>
       </div>
 
       <div className="mt-4 flex items-center gap-4">
@@ -210,12 +210,12 @@ function Recorder({ surah }: { surah: number }) {
           onClick={() => (state === "recording" ? stop() : start())}
           aria-label={state === "recording" ? "Stop recording" : "Record your reflection"}
           className={cn(
-            "relative flex h-14 w-14 shrink-0 items-center justify-center border transition-all duration-300",
-            state === "recording" ? "border-[#e0563b] bg-[#e0563b] text-white" : "border-[var(--box-fg)] hover:bg-[var(--box-fg)] hover:text-[var(--panel-bg)]",
+            "press relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full transition-colors duration-200",
+            state === "recording" ? "bg-[#e0563b] text-white" : "bg-[var(--box-fg)] text-[var(--box-bg-solid)]",
           )}
         >
           {state === "recording" ? <Square size={16} fill="currentColor" /> : <Mic size={18} strokeWidth={1.6} />}
-          {state === "recording" && <span className="absolute inset-0 animate-ping border border-[#e0563b] opacity-40" />}
+          {state === "recording" && <span className="absolute inset-0 animate-ping rounded-full border border-[#e0563b] opacity-40" />}
         </button>
         <div className="min-w-0 flex-1">
           {state === "recording" ? (
@@ -281,17 +281,17 @@ function RecordingRow({ r, n, surah, onDelete }: { r: Recording; n: number; sura
   };
 
   return (
-    <div className="group flex items-center gap-3 border-t border-[var(--box-line)] py-2.5">
-      <button type="button" onClick={toggle} aria-label={playing ? "Pause" : "Play"} className="flex h-8 w-8 items-center justify-center border border-[var(--box-line)] hover:border-[var(--box-fg)]">
+    <div className="group flex items-center gap-3 py-2.5">
+      <button type="button" onClick={toggle} aria-label={playing ? "Pause" : "Play"} className="circle-btn is-sm">
         {playing ? <Pause size={13} /> : <Play size={13} />}
       </button>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between">
-          <span className="label">Recording {n}</span>
+          <span className="text-[13px] font-medium">Recording {n}</span>
           <span className="label-sm text-[var(--box-faint)] tabular-nums">{fmt(r.dur)}</span>
         </div>
-        <div className="mt-1.5 h-px bg-[var(--box-line)]">
-          <div className="h-px bg-[var(--color-gold)] transition-[width] duration-200" style={{ width: `${Math.min(1, progress) * 100}%` }} />
+        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[var(--box-hover)]">
+          <div className="h-full rounded-full bg-[var(--box-accent)] transition-[width] duration-200" style={{ width: `${Math.min(1, progress) * 100}%` }} />
         </div>
         <div className="label-sm mt-1 text-[var(--box-faint)]">{new Date(r.at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</div>
       </div>

@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { MotionConfig } from "framer-motion";
 import { createRoot } from "react-dom/client";
+import "@fontsource-variable/lexend";
 import "@fontsource-variable/geist";
 import "@fontsource-variable/geist-mono";
 import "@fontsource-variable/newsreader/opsz.css";
@@ -9,8 +10,7 @@ import "@fontsource/amiri-quran";
 import "@fontsource/reem-kufi/400.css";
 import "@fontsource/reem-kufi/600.css";
 import "@fontsource-variable/caveat";
-// each theme's faces to read in and to name things with (index.css: each theme's lettering).
-// Lunar: Spectral to read, Cormorant's capitals for names, Jost for labels
+// the faces a shared ayah's picture and a video can be lettered in (read/grounds.ts, video/render.ts)
 import "@fontsource-variable/jost";
 import "@fontsource-variable/cormorant-garamond";
 import "@fontsource-variable/cormorant-garamond/wght-italic.css";
@@ -18,11 +18,9 @@ import "@fontsource/spectral/300.css";
 import "@fontsource/spectral/300-italic.css";
 import "@fontsource/spectral/400.css";
 import "@fontsource/spectral/500.css";
-// Paper: Fraunces, labels typed in Courier Prime
 import "@fontsource-variable/fraunces/opsz.css";
 import "@fontsource-variable/fraunces/wght-italic.css";
 import "@fontsource/courier-prime/400.css";
-// Sajjadah: Crimson Pro to read, Amiri's Latin (made beside its Arabic) for the names
 import "@fontsource-variable/crimson-pro/wght.css";
 import "@fontsource-variable/crimson-pro/wght-italic.css";
 import "@fontsource/amiri/latin-400.css";
@@ -31,6 +29,7 @@ import "@fontsource/amiri/latin-ext-400.css";
 import "@fontsource/amiri/latin-ext-400-italic.css";
 import "@fontsource/courier-prime/700.css";
 import "./index.css";
+import "./bento.css";
 import App from "./App";
 
 createRoot(document.getElementById("root")!).render(

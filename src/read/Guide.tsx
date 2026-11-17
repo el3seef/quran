@@ -3,20 +3,19 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Bookmark, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Maximize2, Mic, Pause, Play, Search, Share2, SquarePlus } from "lucide-react";
 import { BrainGlyph, NoteGlyph } from "@/components/glyphs";
 import { EASE_IN_OUT, EASE_OUT, cn } from "@/lib/utils";
-import { THEMES } from "@/lib/themes";
 import { glossFor } from "./terms";
 
 /**
  * The guide: every feature of the reader, one at a time, each shown working on a small stage
- * (words that explain themselves when touched, a highlight drawn, the frame turning over, the
+ * (words that explain themselves when touched, a highlight drawn, the summary fading in, the
  * slider moving, focus filling the screen) beside a few lines on how to use it.
  */
 type Step = { title: string; text: ReactNode; demo: () => ReactNode };
 
 const STEPS: Step[] = [
   {
-    title: "One ayah, or many",
-    text: "The switch at the top right of the reader: one ayah fills the frame, or many run one after another. Tap the one already chosen for the ways to read: Arabic and translation, either alone, and with many ayahs, either alone as a book. The Arabic as a book keeps the lines of the printed mushaf.",
+    title: "Ways to read",
+    text: "At the top of the reader (on a phone, the glasses button): the layout, one ayah at a time, the ayahs scrolling, or as a book; and what is shown, the Arabic with its translation or either alone. The Arabic as a book keeps the lines of the printed mushaf.",
     demo: () => <ViewDemo />,
   },
   {
@@ -31,12 +30,12 @@ const STEPS: Step[] = [
   },
   {
     title: "Each ayah's own tools",
-    text: "Beside every ayah: hear it recited, bookmark it, add to it (a note, a voice note, or another ayah brought up beside it), and share it as a picture or copy it. Make folders in Saved, and a bookmark asks which ones to go in.",
+    text: "Beside every ayah (one at a time, in the pill under it): hear it recited, bookmark it, its tafsir, another ayah brought up beside it, a note or a voice note, and copy it or share it as a picture. Make folders in Saved, and a bookmark asks which ones to go in.",
     demo: () => <ToolsDemo />,
   },
   {
     title: "Listen",
-    text: "The play button beside an ayah recites it, each word lit as it is said, and stops at its end. The controls at the foot of the frame go on to the next ayah, change the reciter, and turn on Play on, for the surah to carry on ayah after ayah, the page following. A highlighted part of the Arabic can be heard alone, from its menu.",
+    text: "The play button beside an ayah recites it, each word lit as it is said, and stops at its end. The controls in the dock under the page go on to the next ayah, change the reciter, and turn on Play on, for the surah to carry on ayah after ayah, the page following. A highlighted part of the Arabic can be heard alone, from its menu.",
     demo: () => <ListenDemo />,
   },
   {
@@ -55,18 +54,18 @@ const STEPS: Step[] = [
     demo: () => <ContextDemo />,
   },
   {
-    title: "The other side of the frame",
-    text: "The lines beside the frame (on a phone, a swipe in from either side of it) turn it over: what the surah is about, and its themes ayah by ayah. Tap the stage.",
+    title: "About the surah",
+    text: "Tap the surah's name at the top (or press T): what the surah is about, and its themes ayah by ayah, each a link to where it begins. Tap the stage.",
     demo: () => <FlipDemo />,
   },
   {
     title: "Move through the surah",
-    text: "The slider under the frame goes straight to any ayah. The quill at its end opens your reflection on the surah: write it, or record it.",
+    text: "The slider in the dock under the page goes straight to any ayah. The button at its end opens your reflection on the surah: write it, or record it.",
     demo: () => <SliderDemo />,
   },
   {
     title: "Find anything",
-    text: "Search for a surah, an ayah or a word: 18, 2:255, Kahf 10, الكهف, mercy. Index returns to the surahs, and shows them other ways too: by juz, theme or topic, the supplications, the prostrations, the summaries.",
+    text: "Search for a surah, an ayah or a word: 18, 2:255, Kahf 10, الكهف, mercy. The arrow at the top left returns to the surahs, and they are shown other ways too: by juz, theme or topic, the supplications, the prostrations, the summaries.",
     demo: () => <SearchDemo />,
   },
   {
@@ -76,7 +75,7 @@ const STEPS: Step[] = [
   },
   {
     title: "Focus",
-    text: "The focus button (or F) clears everything away: the frame fills the screen, only the ayahs and their tools stay. Esc, or the corner button, brings it all back.",
+    text: "The focus button (or F; on a phone, in Ways to read) clears everything away: the page fills the screen, only the ayahs and their tools stay. Esc, or the corner button, brings it all back.",
     demo: () => <FocusDemo />,
   },
   {
@@ -86,8 +85,8 @@ const STEPS: Step[] = [
   },
   {
     title: "Make it yours",
-    text: "Three themes, each its own look, type and motion: choose one on the first page, or in Display, with the sizes of the Arabic and the translation. In Reading, show each ayah's transliteration under its Arabic.",
-    demo: () => <ThemesDemo />,
+    text: "Light by day and dark by night, as your device is set, or held to either in Display, with the sizes of the Arabic and the translation. In Reading, show each ayah's transliteration under its Arabic.",
+    demo: () => <AppearanceDemo />,
   },
 ];
 
@@ -112,7 +111,7 @@ const KEYS: { group: string; rows: [string, string[][]][] }[] = [
       ["Saved", [["S"]]],
       ["Settings", [[","]]],
       ["Reflect on the surah", [["R"]]],
-      ["The surah's summary (the frame turned over)", [["T"]]],
+      ["The surah's summary", [["T"]]],
       ["These keys", [["?"]]],
       ["Close, go back", [["Esc"]]],
     ],
@@ -174,13 +173,13 @@ function KeysList() {
     ref.current?.scrollIntoView({ block: "start" });
   }, []);
   return (
-    <div ref={ref} id="guide-keys" className="mt-4 border-t border-[var(--box-line)] pt-7">
-      <h3 className="display font-serif text-[24px] leading-tight italic md:text-[28px]">Keyboard shortcuts</h3>
+    <div ref={ref} id="guide-keys" className="card px-5 py-6 md:px-7">
+      <h3 className="text-[22px] font-semibold leading-tight tracking-[-0.02em] md:text-[24px]">Keyboard shortcuts</h3>
       <p className="mt-2 max-w-[52ch] text-[14.5px] leading-relaxed text-[var(--box-muted)]">On a computer, every button has its key. Press ? on the reading page to come back here.</p>
       <div className="mt-6 grid gap-x-10 gap-y-7 md:grid-cols-2">
         {KEYS.map((g) => (
           <div key={g.group}>
-            <div className="label mb-2.5 text-[var(--box-faint)]">{g.group}</div>
+            <div className="mb-2 text-[13px] font-medium text-[var(--box-faint)]">{g.group}</div>
             <div className="flex flex-col">
               {g.rows.map(([what, keys]) => (
                 <div key={what} className="flex items-center justify-between gap-4 border-b border-[var(--box-line)] py-[7px] last:border-b-0">
@@ -218,9 +217,10 @@ export function GuideTab() {
     return () => window.removeEventListener("keydown", key);
   }, []);
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-2.5">
+      <div className="card flex flex-col gap-5 px-5 py-5 md:px-7 md:py-6">
       <div className="flex items-center justify-between gap-3">
-        <span className="label text-[var(--box-faint)] tabular-nums">
+        <span className="text-[13px] text-[var(--box-faint)] tabular-nums">
           {i + 1} / {STEPS.length}
         </span>
         <div className="flex gap-1">
@@ -230,7 +230,7 @@ export function GuideTab() {
               type="button"
               aria-label={s.title}
               onClick={() => setI(k)}
-              className={cn("pill h-1.5 transition-all duration-300", k === i ? "w-5 bg-[var(--box-accent)]" : "w-1.5 bg-[var(--box-line)] hover:bg-[var(--box-faint)]")}
+              className={cn("h-1.5 rounded-full transition-all duration-200", k === i ? "w-5 bg-[var(--box-fg)]" : "w-1.5 bg-[var(--box-line)] hover:bg-[var(--box-faint)]")}
             />
           ))}
         </div>
@@ -238,30 +238,31 @@ export function GuideTab() {
       <AnimatePresence mode="wait">
         <motion.div
           key={i}
-          initial={{ opacity: 0, x: 18 }}
+          initial={{ opacity: 0, x: 12 }}
           animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -18, transition: { duration: 0.16 } }}
-          transition={{ duration: 0.35, ease: EASE_OUT }}
+          exit={{ opacity: 0, x: -12, transition: { duration: 0.12 } }}
+          transition={{ duration: 0.22, ease: EASE_OUT }}
           className="flex flex-col gap-4"
         >
-          <div className="guide-stage relative aspect-[16/10] w-full overflow-hidden border border-[var(--box-line)] bg-[var(--box-hover)]">{step.demo()}</div>
+          <div className="guide-stage relative aspect-[16/10] max-h-[44vh] w-full overflow-hidden rounded-[20px] bg-[var(--box-hover)]">{step.demo()}</div>
           <div>
-            <h3 className="display font-serif text-[24px] leading-tight italic md:text-[28px]">{step.title}</h3>
+            <h3 className="text-[22px] font-semibold leading-tight tracking-[-0.02em] md:text-[24px]">{step.title}</h3>
             <p className="mt-2 max-w-[52ch] text-[14.5px] leading-relaxed text-[var(--box-muted)]">{step.text}</p>
           </div>
         </motion.div>
       </AnimatePresence>
       <div className="flex items-center justify-between">
-        <button type="button" onClick={() => go(-1)} disabled={i === 0} className="btn-secondary pill label flex items-center gap-1 border border-[var(--box-line)] px-3 py-2 disabled:opacity-30">
+        <button type="button" onClick={() => go(-1)} disabled={i === 0} className="chip h-10 gap-1 px-4 text-[13.5px] disabled:opacity-30">
           <ChevronLeft size={14} /> Back
         </button>
         <button
           type="button"
           onClick={() => (i === STEPS.length - 1 ? setI(0) : go(1))}
-          className="btn-primary pill label flex items-center gap-1 border border-[var(--box-fg)] px-3 py-2 hover:bg-[var(--box-fg)] hover:text-[var(--box-bg-solid)]"
+          className="btn-primary flex h-10 items-center gap-1 px-4 text-[13.5px] font-medium"
         >
           {i === STEPS.length - 1 ? "From the start" : "Next"} <ChevronRight size={14} />
         </button>
+      </div>
       </div>
       {keyboard && <KeysList />}
     </div>
@@ -281,12 +282,12 @@ function useLoop(n: number, ms: number) {
 }
 
 const Mini = ({ children, className }: { children: ReactNode; className?: string }) => (
-  <div className={cn("absolute inset-[8%] flex flex-col border border-[var(--box-line)] bg-[var(--box-bg-solid)]", className)}>
-    <div className="flex h-6 shrink-0 items-center justify-between border-b border-[var(--box-line)] px-3">
-      <span className="font-serif text-[11px] italic">Al-Fātiĥah</span>
+  <div className={cn("absolute inset-[8%] flex flex-col overflow-hidden rounded-[16px] bg-[var(--box-bg-solid)] shadow-[0_0_0_1px_var(--box-line)]", className)}>
+    <div className="flex h-7 shrink-0 items-center justify-between px-3">
+      <span className="text-[11px] font-semibold">Al-Fātiĥah</span>
       <span className="flex gap-1">
         {[0, 1, 2].map((d) => (
-          <span key={d} className="h-1 w-3 bg-[var(--box-line)]" />
+          <span key={d} className="h-3 w-3 rounded-full bg-[var(--surface)] shadow-[0_0_0_1px_var(--box-line)]" />
         ))}
       </span>
     </div>
@@ -296,54 +297,42 @@ const Mini = ({ children, className }: { children: ReactNode; className?: string
 
 function ViewDemo() {
   const k = useLoop(3, 2400);
-  const many = k === 2;
+  const lines = ["ٱلۡحَمۡدُ لِلَّهِ رَبِّ ٱلۡعَٰلَمِينَ", "ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ", "مَٰلِكِ يَوۡمِ ٱلدِّينِ"];
   return (
     <Mini>
-      <div className="absolute right-2 top-2 z-10 flex border border-[var(--box-line)] p-0.5">
-        {[false, true].map((m) => (
-          <span key={String(m)} className={cn("flex h-4 items-center justify-center gap-0.5 transition-all duration-300", m === many ? "w-7 bg-[var(--box-fg)]" : "w-5")}>
-            <span className={cn("flex flex-col gap-[2px]", m === many ? "text-[var(--box-bg-solid)]" : "text-[var(--box-muted)]")}>
-              {Array.from({ length: m ? 3 : 1 }, (_, i) => (
-                <span key={i} className="block h-px w-2.5 bg-current" />
-              ))}
-            </span>
-            {m === many && <ChevronDown size={7} strokeWidth={3} className="text-[var(--box-bg-solid)]" />}
+      <div className="absolute left-1/2 top-2.5 z-10 flex -translate-x-1/2 rounded-full bg-[var(--surface)] p-0.5 text-[10px] font-medium shadow-[0_0_0_1px_var(--box-line)]">
+        {["One ayah", "Scroll", "Book"].map((l, i) => (
+          <span key={l} className={cn("relative rounded-full px-2.5 py-1", i === k ? "text-[var(--box-bg-solid)]" : "text-[var(--box-muted)]")}>
+            {i === k && <motion.span layoutId="guide-view" className="absolute inset-0 rounded-full bg-[var(--box-fg)]" transition={{ duration: 0.22, ease: EASE_OUT }} />}
+            <span className="relative">{l}</span>
           </span>
         ))}
       </div>
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
+        {k === 0 && (
+          <motion.div key="one" className="flex h-full items-center justify-center px-5 pt-8" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            <div className="flex w-full flex-col items-center gap-2.5 rounded-[18px] bg-[var(--surface)] px-4 py-5">
+              <div className="quran text-[24px]">{lines[0]}</div>
+              <div className="h-1.5 w-2/3 rounded-full bg-[var(--box-line)]" />
+              <div className="h-1.5 w-1/2 rounded-full bg-[var(--box-line)]" />
+            </div>
+          </motion.div>
+        )}
         {k === 1 && (
-          <motion.div
-            className="absolute right-2 top-8 z-20 w-[52%] border border-[var(--box-line)] bg-[var(--box-bg-solid)] p-1 text-[10px] shadow-lg"
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25, ease: EASE_OUT }}
-          >
-            {["Arabic + translation", "Arabic only", "Translation only"].map((l, i) => (
-              <div key={l} className={cn("flex items-center gap-1.5 px-1.5 py-1", i === 0 && "bg-[var(--box-hover)]")}>
-                <Check size={9} strokeWidth={3} className={i === 0 ? "text-[var(--color-gold)]" : "text-transparent"} />
-                {l}
+          <motion.div key="many" className="flex h-full flex-col gap-2 px-5 pt-10" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            {lines.map((t, i) => (
+              <div key={i} className="rounded-[14px] bg-[var(--surface)] px-3 py-2">
+                <div className="quran text-[15px]">{t}</div>
+                <div className="mt-1 h-1 w-3/4 rounded-full bg-[var(--box-line)]" />
               </div>
             ))}
           </motion.div>
         )}
-      </AnimatePresence>
-      <AnimatePresence mode="wait">
-        {many ? (
-          <motion.div key="many" className="flex h-full flex-col gap-3 px-6 py-5" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            {["ٱلۡحَمۡدُ لِلَّهِ رَبِّ ٱلۡعَٰلَمِينَ", "ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ", "مَٰلِكِ يَوۡمِ ٱلدِّينِ"].map((t, i) => (
-              <div key={i} className="border-b border-[var(--box-line)] pb-2">
-                <div className="quran text-[17px]">{t}</div>
-                <div className="mt-1 h-1.5 w-3/4 bg-[var(--box-line)]" />
-              </div>
-            ))}
-          </motion.div>
-        ) : (
-          <motion.div key="one" className="flex h-full flex-col items-center justify-center gap-3 px-6" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <div className="quran text-[28px]">ٱلۡحَمۡدُ لِلَّهِ رَبِّ ٱلۡعَٰلَمِينَ</div>
-            <div className="h-1.5 w-2/3 bg-[var(--box-line)]" />
-            <div className="h-1.5 w-1/2 bg-[var(--box-line)]" />
+        {k === 2 && (
+          <motion.div key="book" className="flex h-full items-start justify-center px-8 pt-10" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            <div className="w-full rounded-[16px] bg-[var(--surface)] px-4 py-3 text-center">
+              <div className="quran text-[14px] leading-[1.9]">{lines.join(" ۝ ")}</div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -587,20 +576,26 @@ function FlipDemo() {
   const [manual, setManual] = useState<number | null>(null);
   const back = (manual ?? auto) === 1;
   return (
-    <button type="button" onClick={() => setManual((m) => ((m ?? auto) === 1 ? 0 : 1))} className="absolute inset-0 cursor-pointer" style={{ perspective: 900 }} aria-label="Turn the frame over">
-      <motion.div className="absolute inset-[12%]" animate={{ rotateY: back ? -180 : 0 }} transition={{ duration: 0.9, ease: EASE_IN_OUT }} style={{ transformStyle: "preserve-3d" }}>
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 border border-[var(--box-line)] bg-[var(--box-bg-solid)]" style={{ backfaceVisibility: "hidden" }}>
-          <span className="quran text-[26px]">ٱلۡحَمۡدُ لِلَّهِ</span>
-          <span className="h-1.5 w-1/2 bg-[var(--box-line)]" />
-        </div>
-        <div className="dark-scope absolute inset-0 flex flex-col justify-center gap-2 border border-[var(--box-line)] bg-[var(--panel-bg)] px-6 text-left text-[var(--box-fg)]" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
-          <span className="label text-[var(--box-accent)]">Summary</span>
-          <span className="font-serif text-[16px] italic">What the surah is about</span>
-          <span className="h-1.5 w-4/5 bg-[var(--box-line)]" />
-          <span className="h-1.5 w-3/5 bg-[var(--box-line)]" />
-        </div>
-      </motion.div>
-      <motion.span className="absolute right-[6%] top-1/2 h-12 w-[3px] -translate-y-1/2" animate={{ backgroundColor: back ? "var(--box-line)" : "var(--box-accent)" }} />
+    <button type="button" onClick={() => setManual((m) => ((m ?? auto) === 1 ? 0 : 1))} className="absolute inset-0 cursor-pointer" aria-label="Open the surah's summary">
+      <span className="absolute left-[10%] top-[9%] flex items-center gap-1 text-[12px] font-semibold">
+        Al-Fātiĥah
+        <ChevronRight size={11} strokeWidth={2.4} className="text-[var(--box-faint)]" />
+      </span>
+      <AnimatePresence mode="wait" initial={false}>
+        {back ? (
+          <motion.div key="back" className="absolute inset-x-[10%] bottom-[10%] top-[22%] flex flex-col justify-center gap-2 rounded-[18px] bg-[var(--surface)] px-5 text-left" initial={{ opacity: 0, scale: 0.985 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.22, ease: EASE_OUT }}>
+            <span className="self-start rounded-full bg-[color-mix(in_srgb,var(--box-accent)_12%,transparent)] px-2 py-0.5 text-[10px] font-medium text-[var(--box-accent)]">Summary</span>
+            <span className="text-[14px] font-semibold">What the surah is about</span>
+            <span className="h-1.5 w-4/5 rounded-full bg-[var(--box-line)]" />
+            <span className="h-1.5 w-3/5 rounded-full bg-[var(--box-line)]" />
+          </motion.div>
+        ) : (
+          <motion.div key="front" className="absolute inset-x-[10%] bottom-[10%] top-[22%] flex flex-col items-center justify-center gap-2 rounded-[18px] bg-[var(--surface)]" initial={{ opacity: 0, scale: 0.985 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.22, ease: EASE_OUT }}>
+            <span className="quran text-[24px]">ٱلۡحَمۡدُ لِلَّهِ</span>
+            <span className="h-1.5 w-1/2 rounded-full bg-[var(--box-line)]" />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </button>
   );
 }
@@ -717,18 +712,15 @@ function MenuDemo() {
   );
 }
 
-function ThemesDemo() {
-  const k = useLoop(THEMES.length, 1500);
-  const t = { name: THEMES[k].name, ...THEMES[k].preview };
+/** The page by day and by night: the same words, the light changing under them. */
+function AppearanceDemo() {
+  const dark = useLoop(2, 1800) === 1;
+  const t = dark ? { bg: "#131311", fg: "#ebe7de", ac: "#8fbfae", name: "Dark" } : { bg: "#f7f4ee", fg: "#1c1b19", ac: "#2f5d50", name: "Light" };
   return (
-    <motion.div className="absolute inset-0 flex items-center justify-center" animate={{ backgroundColor: t.bg }} transition={{ duration: 0.6 }}>
-      <motion.div className="flex h-[64%] w-[62%] flex-col items-center justify-center gap-2" animate={{ backgroundColor: t.box, borderRadius: t.r, color: t.fg }} style={{ border: t.b }} transition={{ duration: 0.6 }}>
-        <span className="quran text-[24px]">بِسۡمِ ٱللَّهِ</span>
-        <motion.span className="h-[3px] w-10" animate={{ backgroundColor: t.ac }} />
-        <span className="font-sans text-[11px] uppercase tracking-[0.2em]" style={{ color: t.fg }}>
-          {t.name}
-        </span>
-      </motion.div>
+    <motion.div className="absolute inset-0 flex flex-col items-center justify-center gap-2" animate={{ backgroundColor: t.bg, color: t.fg }} transition={{ duration: 0.5, ease: EASE_IN_OUT }}>
+      <span className="quran text-[26px]">بِسۡمِ ٱللَّهِ</span>
+      <motion.span className="h-[2px] w-10 rounded-full" animate={{ backgroundColor: t.ac }} transition={{ duration: 0.5 }} />
+      <span className="font-sans text-[11px] font-medium tracking-[0.06em]">{t.name}</span>
     </motion.div>
   );
 }

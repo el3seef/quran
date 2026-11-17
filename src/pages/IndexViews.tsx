@@ -100,7 +100,7 @@ function RefChip({ r, onOpen }: { r: Ref; onOpen: Open }) {
     <button
       type="button"
       onClick={() => onOpen(r[0], r[1])}
-      className="pill mx-0.5 my-0.5 inline-flex h-6 items-center border border-[var(--box-line)] px-1.5 align-middle font-mono text-[11px] tabular-nums text-[var(--box-muted)] transition-colors hover:border-[var(--box-fg)] hover:text-[var(--box-fg)]"
+      className="mx-0.5 my-0.5 inline-flex h-6 items-center rounded-full bg-[var(--box-hover)] px-2 align-middle text-[11.5px] tabular-nums text-[var(--box-muted)] transition-colors hover:bg-[var(--box-fg)] hover:text-[var(--box-bg-solid)]"
     >
       {r[0]}:{r[1]}
       {r[2] ? `–${r[2]}` : ""}
@@ -206,7 +206,7 @@ function JuzView({ surahs, juz, onOpen }: { surahs: Surah[]; juz: Record<string,
     <>
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
         {parts.map((p) => (
-          <div key={p.n} className="flex flex-col border border-[var(--box-line)] p-3.5 transition-colors hover:border-[var(--box-muted)]">
+          <div key={p.n} className="card flex flex-col p-4 transition-shadow duration-150 hover:shadow-[0_0_0_1px_var(--box-fg)]">
             <button type="button" onClick={() => onOpen(p.s, p.a)} className="text-left">
               <div className="flex items-baseline justify-between gap-3">
                 <span className="flex items-baseline gap-2">
@@ -561,7 +561,7 @@ function SummariesView({ surahs, onOpen, mobile }: { surahs: Surah[]; onOpen: Op
         ))}
         {!(all[String(cur.n)] ?? []).length && <p className="font-serif text-[16px] text-[var(--box-muted)]">Quraan Made Easy gives no introduction for this surah.</p>}
       </div>
-      <button type="button" onClick={() => onOpen(cur.n, 1)} className="btn-primary label mt-8 border border-[var(--box-fg)] px-3 py-2 transition-colors hover:bg-[var(--box-fg)] hover:text-[var(--box-bg-solid)]">
+      <button type="button" onClick={() => onOpen(cur.n, 1)} className="btn-primary mt-8 inline-flex h-11 items-center px-5 text-[14px] font-medium">
         Read {nameMarks(cur.tc)} →
       </button>
     </motion.div>

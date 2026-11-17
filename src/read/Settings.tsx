@@ -1,12 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ImmersivePanel, MenuGlyph, Reveal } from "@/components/ImmersivePanel";
+import { ImmersivePanel, Reveal } from "@/components/ImmersivePanel";
 import { HIGHLIGHT_COLORS, HIGHLIGHT_HEX, useStore, type HighlightColor, type Settings } from "@/lib/store";
 import { FolderPicker } from "./Folders";
-import { FolderPlus } from "lucide-react";
+import { BookOpen, Bookmark, Compass, FolderPlus, Languages, Palette, Target, Volume2, X, type LucideIcon } from "lucide-react";
 import { useUI } from "@/lib/ui";
 import { ProgressTab } from "./Progress";
-import { THEMES } from "@/lib/themes";
+import { APPEARANCES } from "@/lib/themes";
 import { GuideTab } from "./Guide";
 import type { Surah, Translation, Verse } from "@/lib/data";
 import { TRANSLATIONS, loadSurah, translationText } from "@/lib/data";
@@ -16,14 +16,14 @@ import { nameMarks } from "@/lib/names";
 import { RECITERS } from "@/lib/recite";
 
 type Tab = "reading" | "translation" | "display" | "sound" | "saved" | "progress" | "guide";
-const TABS: { id: Tab; name: string }[] = [
-  { id: "reading", name: "Reading" },
-  { id: "translation", name: "Translation" },
-  { id: "display", name: "Display" },
-  { id: "sound", name: "Sound" },
-  { id: "saved", name: "Saved" },
-  { id: "progress", name: "Progress" },
-  { id: "guide", name: "Guide" },
+const TABS: { id: Tab; name: string; icon: LucideIcon }[] = [
+  { id: "reading", name: "Reading", icon: BookOpen },
+  { id: "translation", name: "Translation", icon: Languages },
+  { id: "display", name: "Display", icon: Palette },
+  { id: "sound", name: "Sound", icon: Volume2 },
+  { id: "saved", name: "Saved", icon: Bookmark },
+  { id: "progress", name: "Progress", icon: Target },
+  { id: "guide", name: "Guide", icon: Compass },
 ];
 
 export function SettingsPanel({
@@ -51,59 +51,53 @@ export function SettingsPanel({
   return (
     <ImmersivePanel open={open} from="left" onClose={onClose} label="Settings">
       <div className="flex h-full flex-col">
-        <div className="flex items-start justify-between px-5 pt-4 md:px-8 md:pt-6">
+        <div className="flex h-[64px] shrink-0 items-center justify-between gap-3 px-4 md:h-[76px] md:px-6">
           <Reveal>
-            <div className="label text-[var(--box-faint)]">Settings</div>
-            <div className="mt-1 text-[13px] text-[var(--box-muted)]">
-              <button type="button" onClick={() => useUI.getState().setAbout(true)} className="underline decoration-[var(--box-line)] underline-offset-4 transition-colors hover:text-[var(--box-fg)] hover:decoration-current">
-                About this reader
-              </button>
-            </div>
+            <div className="text-[20px] font-semibold leading-tight tracking-[-0.02em] md:text-[22px]">Settings</div>
+            <button type="button" onClick={() => useUI.getState().setAbout(true)} className="text-[12.5px] text-[var(--box-muted)] underline decoration-[var(--box-line)] underline-offset-4 transition-colors hover:text-[var(--box-fg)] hover:decoration-current">
+              About this reader
+            </button>
           </Reveal>
-          <button type="button" onClick={onClose} aria-label="Close settings" className="flex h-9 w-9 items-center justify-center hover:bg-[var(--box-hover)]">
-            <MenuGlyph open />
+          <button type="button" onClick={onClose} aria-label="Close settings" className={cn("circle-btn", mobile && "is-md")}>
+            <X size={18} strokeWidth={1.9} />
           </button>
         </div>
 
-        <div className={cn("flex min-h-0 flex-1 gap-6 px-5 pb-5 md:gap-14 md:px-8", mobile ? "flex-col pt-3" : "items-stretch pt-8")}>
-          <nav className={cn("shrink-0", mobile ? "flex gap-5 overflow-x-auto pt-3" : "flex w-[34%] flex-col justify-center")} aria-label="Settings sections">
-            {TABS.map((t) => (
-              <Reveal key={t.id}>
+        <div className={cn("flex min-h-0 flex-1 gap-3 px-3 pb-3 md:gap-5 md:px-5 md:pb-5", mobile && "flex-col")}>
+          <nav className={cn("shrink-0", mobile ? "no-scrollbar -mx-3 flex gap-2 overflow-x-auto px-3 pb-1" : "card flex w-[230px] flex-col gap-1 self-start p-2")} aria-label="Settings sections">
+            {TABS.map((t) => {
+              const on = tab === t.id;
+              const Icon = t.icon;
+              return mobile ? (
+                <button key={t.id} type="button" onClick={() => setTab(t.id)} aria-current={on} className={cn("chip", on && "is-on")}>
+                  <Icon size={15} strokeWidth={1.9} />
+                  {t.name}
+                </button>
+              ) : (
                 <button
+                  key={t.id}
                   type="button"
                   onClick={() => setTab(t.id)}
-                  aria-current={tab === t.id}
-                  className={cn(
-                    "group relative text-left font-sans leading-[1.1] tracking-[-0.02em] transition-colors duration-300",
-                    mobile ? "text-[22px]" : "text-[clamp(30px,4.2vw,56px)]",
-                    tab === t.id ? "text-[var(--box-fg)]" : "text-[var(--box-faint)] hover:text-[var(--box-muted)]",
-                  )}
+                  aria-current={on}
+                  className={cn("press-soft relative flex h-12 items-center gap-3 rounded-2xl px-4 text-left text-[15px] transition-colors duration-150", on ? "text-[var(--box-bg-solid)]" : "text-[var(--box-muted)] hover:bg-[var(--box-hover)] hover:text-[var(--box-fg)]")}
                 >
-                  {t.name}
-                  {tab === t.id && (
-                    <motion.span
-                      layoutId="tab-dot"
-                      className={cn(
-                        "absolute h-1.5 w-1.5 rotate-45 bg-[var(--color-gold)]",
-                        // side by side on a phone, so the mark sits above the chosen one
-                        mobile ? "-top-2.5 left-1/2 -ml-[3px]" : "-left-6 top-1/2 -mt-[3px]",
-                      )}
-                    />
-                  )}
+                  {on && <motion.span layoutId="settings-tab" className="absolute inset-0 rounded-2xl bg-[var(--box-fg)]" transition={{ duration: 0.22, ease: EASE_OUT }} />}
+                  <Icon size={18} strokeWidth={1.8} className="relative" />
+                  <span className="relative">{t.name}</span>
                 </button>
-              </Reveal>
-            ))}
+              );
+            })}
           </nav>
 
-          <Reveal className="thin-scroll min-h-0 flex-1 overflow-y-auto md:border-l md:border-[var(--box-line)] md:pl-10">
-            <AnimatePresence mode="wait">
+          <Reveal className="thin-scroll min-h-0 flex-1 overflow-y-auto rounded-[var(--r-card)]">
+            <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={tab}
-                initial={{ opacity: 0, y: 12, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -6, transition: { duration: 0.12 } }}
-                transition={{ duration: 0.3, ease: EASE_OUT }}
-                className="flex flex-col gap-7 py-1 md:py-4"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, transition: { duration: 0.1 } }}
+                transition={{ duration: 0.2, ease: EASE_OUT }}
+                className="settings-cards flex max-w-[880px] flex-col gap-2.5"
               >
                 {tab === "reading" && <ReadingTab s={settings} set={set} />}
                 {tab === "translation" && <TranslationTab s={settings} set={set} />}
@@ -179,10 +173,7 @@ function ReadingTab({ s, set }: TabProps) {
               role="radio"
               aria-checked={s.reciter === x.id}
               onClick={() => set({ reciter: x.id })}
-              className={cn(
-                "pill border px-3 py-1.5 text-[13px] transition-colors",
-                s.reciter === x.id ? "border-[var(--box-fg)] text-[var(--box-fg)]" : "border-[var(--box-line)] text-[var(--box-muted)] hover:border-[var(--box-muted)] hover:text-[var(--box-fg)]",
-              )}
+              className={cn("chip h-9 px-3.5 text-[13px]", s.reciter === x.id && "is-on")}
             >
               {x.name}
             </button>
@@ -220,9 +211,7 @@ function TranslationTab({ s, set }: TabProps) {
   return (
     <div className="flex flex-col gap-3 md:gap-5">
       {/* (on a phone the cards' own labels say it, and all three fit in view) */}
-      <div className="hidden text-[13px] text-[var(--box-muted)] md:block">
-        Up to three, one under another.
-      </div>
+      <div className="hidden px-1 text-[13px] text-[var(--box-muted)] md:block">Up to three, one under another.</div>
       {(Object.keys(TRANSLATIONS) as Translation[]).map((t) => {
         const at = shown.indexOf(t);
         const main = at === 0, on = at >= 0;
@@ -230,11 +219,11 @@ function TranslationTab({ s, set }: TabProps) {
         return (
           <div
             key={t}
-            className={cn("relative border px-3 py-2.5 transition-colors md:p-5", on ? "border-[var(--box-fg)]" : "border-[var(--box-line)] hover:border-[var(--box-muted)]")}
+            className={cn("card relative px-4 py-3.5 transition-shadow duration-150 md:px-6 md:py-5", on ? "shadow-[0_0_0_2px_var(--box-fg)]" : "")}
           >
             <div className="flex items-baseline justify-between gap-3">
-              <span className="font-serif text-[18px] italic md:text-[22px]">{TRANSLATIONS[t].name}</span>
-              <span className={cn("label-sm shrink-0", on ? "text-[var(--color-gold)]" : "text-[var(--box-faint)]")}>
+              <span className="text-[17px] font-semibold tracking-[-0.015em] md:text-[19px]">{TRANSLATIONS[t].name}</span>
+              <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[12px] font-medium", main ? "bg-[var(--box-fg)] text-[var(--box-bg-solid)]" : on ? "bg-[color-mix(in_srgb,var(--box-accent)_14%,transparent)] text-[var(--box-accent)]" : "bg-[var(--box-hover)] text-[var(--box-faint)]")}>
                 {main ? "Main" : on ? `Also shown · ${at + 1} of ${shown.length}` : "Not shown"}
               </span>
             </div>
@@ -248,17 +237,17 @@ function TranslationTab({ s, set }: TabProps) {
             )}
             <div className="mt-2 flex flex-wrap gap-2 md:mt-3">
               {!main && (
-                <button type="button" onClick={() => makeMain(t)} className="btn-secondary pill label border border-[var(--box-line)] px-2.5 py-1 hover:border-[var(--box-fg)] md:py-1.5">
+                <button type="button" onClick={() => makeMain(t)} className="chip h-9 px-3.5 text-[13px]">
                   Make main
                 </button>
               )}
               {!main && !on && (
-                <button type="button" onClick={() => show(t)} className="btn-secondary pill label border border-[var(--box-line)] px-2.5 py-1 hover:border-[var(--box-fg)] md:py-1.5">
+                <button type="button" onClick={() => show(t)} className="chip h-9 px-3.5 text-[13px]">
                   Also show
                 </button>
               )}
               {!main && on && (
-                <button type="button" onClick={() => hide(t)} className="btn-secondary pill label border border-[var(--box-line)] px-2.5 py-1 hover:border-[var(--box-fg)] md:py-1.5">
+                <button type="button" onClick={() => hide(t)} className="chip h-9 px-3.5 text-[13px]">
                   Hide
                 </button>
               )}
@@ -279,29 +268,8 @@ function DisplayTab({ s, set }: TabProps) {
       <Row label="Translation size" inline>
         <Stepper value={s.transScale} onChange={(v) => set({ transScale: v })} />
       </Row>
-      <Row label="Theme">
-        <div className="grid grid-cols-3 gap-2">
-          {THEMES.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => set({ theme: t.id })}
-              aria-pressed={s.theme === t.id}
-              className={cn("group flex flex-col gap-2 border p-2 text-left transition-colors", s.theme === t.id ? "border-[var(--box-fg)]" : "border-[var(--box-line)] hover:border-[var(--box-muted)]")}
-            >
-              <span className="relative flex aspect-[4/3] items-center justify-center overflow-hidden" style={{ background: t.preview.bg }}>
-                <span
-                  className="flex h-[62%] w-[66%] flex-col items-center justify-center gap-1 transition-transform duration-300 group-hover:scale-[1.04]"
-                  style={{ background: t.preview.box, borderRadius: t.preview.r, border: t.preview.b, color: t.preview.fg }}
-                >
-                  <span className="quran text-[15px] leading-none">بِسۡمِ ٱللَّهِ</span>
-                  <span className="h-[2px] w-6" style={{ background: t.preview.ac }} />
-                </span>
-              </span>
-              <span className="text-[13px] leading-tight" style={t.face}>{t.name}</span>
-            </button>
-          ))}
-        </div>
+      <Row label="Appearance">
+        <Segmented value={s.appearance} onChange={(v) => set({ appearance: v as Settings["appearance"] })} options={APPEARANCES} />
       </Row>
       <Toggle label="Ayah slider" on={s.slider} set={(v) => set({ slider: v })} />
       <Toggle label="Film grain" on={s.grain} set={(v) => set({ grain: v })} />
@@ -315,7 +283,7 @@ function SoundTab({ s, set }: TabProps) {
   return (
     <>
       <Toggle label="Sounds" hint="Quiet sounds as you use the reader. Each kind can be turned off below." on={s.sound} set={(v) => set({ sound: v })} />
-      <div className={cn("flex flex-col gap-7 border-l border-[var(--box-line)] pl-5 transition-opacity duration-300", off && "pointer-events-none opacity-40")} aria-disabled={off || undefined}>
+      <div className={cn("settings-cards flex flex-col gap-2.5 pl-4 transition-opacity duration-300 md:pl-6", off && "pointer-events-none opacity-40")} aria-disabled={off || undefined}>
         <Toggle label="Taps and switches" hint="Buttons, switches and menus" on={s.soundTaps} set={(v) => set({ soundTaps: v })} />
         <Toggle label="Typing" hint="Writing a note, a reflection or a search" on={s.soundTyping} set={(v) => set({ soundTyping: v })} />
         <Toggle label="Highlighter" hint="The marker drawn across the words" on={s.sounds} set={(v) => set({ sounds: v })} />
@@ -421,27 +389,24 @@ function SavedTab({ surahs, onGo }: { surahs: Surah[]; onGo: (s: number, a: numb
 
   return (
     <>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-2">
         {SAVED_TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setKind(t.id)}
             aria-pressed={kind === t.id}
-            className={cn(
-              "relative flex items-center gap-2 border px-3 py-1.5 text-[13px] transition-colors",
-              kind === t.id ? "border-[var(--box-fg)] text-[var(--box-fg)]" : "border-[var(--box-line)] text-[var(--box-muted)] hover:border-[var(--box-muted)]",
-            )}
+            className={cn("chip h-10 px-4", kind === t.id && "is-on")}
           >
             {t.name}
-            <span className={cn("font-mono text-[10px] tabular-nums", kind === t.id ? "text-[var(--color-gold)]" : "text-[var(--box-faint)]")}>{rows[t.id].length}</span>
+            <span className={cn("text-[12px] tabular-nums", kind === t.id ? "opacity-70" : "text-[var(--box-faint)]")}>{rows[t.id].length}</span>
           </button>
         ))}
       </div>
 
       {/* highlights: all of them, or one colour */}
       {kind === "highlights" && rows.highlights.length > 0 && (
-        <div className="-mt-2 flex flex-wrap items-center gap-1.5" role="group" aria-label="Highlight colour">
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Highlight colour">
           <FilterChip on={hlColor === "all"} onClick={() => setHlColor("all")} count={rows.highlights.length}>
             All
           </FilterChip>
@@ -458,7 +423,7 @@ function SavedTab({ surahs, onGo }: { surahs: Surah[]; onGo: (s: number, a: numb
 
       {/* bookmarks: All, and the reader's own folders */}
       {kind === "bookmarks" && (
-        <div className="-mt-2 flex flex-col gap-2">
+        <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Bookmark folders">
             <FilterChip on={folder === "all"} onClick={() => setFolder("all")} count={rows.bookmarks.length}>
               All
@@ -475,14 +440,14 @@ function SavedTab({ surahs, onGo }: { surahs: Surah[]; onGo: (s: number, a: numb
       )}
 
       {list.length === 0 ? (
-        <div className="border border-dashed border-[var(--box-line)] px-4 py-8 text-center text-[13.5px] text-[var(--box-muted)]">{empty}</div>
+        <div className="card px-5 py-10 text-center text-[14px] text-[var(--box-muted)]">{empty}</div>
       ) : (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-2.5">
           {[...groups.entries()].map(([s, items]) => (
-            <div key={s}>
-              <div className="mb-1 flex items-baseline gap-2.5">
-                <span className="font-mono text-[10px] text-[var(--box-faint)] tabular-nums">{String(s).padStart(3, "0")}</span>
-                <span className="font-serif text-[17px] italic">{nameMarks(surahs[s - 1]?.tc)}</span>
+            <div key={s} className="card px-2 pb-2 pt-4 md:px-3">
+              <div className="mb-1.5 flex items-baseline gap-2.5 px-3">
+                <span className="text-[12px] text-[var(--box-faint)] tabular-nums">{String(s).padStart(3, "0")}</span>
+                <span className="text-[16px] font-semibold tracking-[-0.015em]">{nameMarks(surahs[s - 1]?.tc)}</span>
                 <span className="font-kufi text-[13px] text-[var(--box-faint)]" dir="rtl">
                   {surahs[s - 1]?.ar}
                 </span>
@@ -490,10 +455,10 @@ function SavedTab({ surahs, onGo }: { surahs: Surah[]; onGo: (s: number, a: numb
               </div>
               <div className="flex flex-col">
                 {items.map((r) => (
-                  <div key={r.id} className="border-t border-[var(--box-line)]">
-                    <div className="group flex items-baseline gap-3 transition-colors hover:bg-[var(--box-hover)]">
-                      <button type="button" onClick={() => onGo(r.surah, r.ayah)} className="flex min-w-0 flex-1 items-baseline gap-3 py-2 text-left">
-                        <span className="w-[4.5ch] shrink-0 font-mono text-[11px] text-[var(--box-faint)] tabular-nums">{kind === "reflections" ? "—" : r.ayah}</span>
+                  <div key={r.id}>
+                    <div className="group flex items-baseline gap-3 rounded-2xl px-3 transition-colors hover:bg-[var(--box-hover)]">
+                      <button type="button" onClick={() => onGo(r.surah, r.ayah)} className="flex min-w-0 flex-1 items-baseline gap-3 py-2.5 text-left">
+                        <span className="w-[4.5ch] shrink-0 text-[12px] text-[var(--box-faint)] tabular-nums">{kind === "reflections" ? "—" : r.ayah}</span>
                         {r.swatch && <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: HIGHLIGHT_HEX[r.swatch as HighlightColor] }} />}
                         <span
                           className={cn(
@@ -541,13 +506,13 @@ function SavedTab({ surahs, onGo }: { surahs: Surah[]; onGo: (s: number, a: numb
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-4 border-t border-[var(--box-line)] pt-5">
+      <div className="flex items-center justify-between gap-4 px-1 pt-2">
         <span className="text-[12.5px] text-[var(--box-faint)]">{total} saved</span>
         <button
           type="button"
           onClick={() => (confirm ? (clearAll(), setConfirm(false)) : setConfirm(true))}
           onBlur={() => setConfirm(false)}
-          className={cn("label border px-3 py-2 transition-colors", confirm ? "border-[#e0563b] bg-[#e0563b] text-white" : "border-[var(--box-line)] text-[var(--box-muted)] hover:border-[var(--box-fg)]")}
+          className={cn("chip h-10 px-4 text-[13px]", confirm && "border-[#e0563b] bg-[#e0563b] text-white")}
         >
           {confirm ? "Press again to delete everything" : "Delete all saved items"}
         </button>
@@ -563,14 +528,10 @@ function FilterChip({ on, onClick, count, dim, label, children }: { on: boolean;
       onClick={onClick}
       aria-pressed={on}
       aria-label={label}
-      className={cn(
-        "pill flex h-8 items-center gap-2 border px-2.5 text-[12.5px] transition-colors",
-        on ? "border-[var(--box-fg)] bg-[var(--box-hover)] text-[var(--box-fg)]" : "border-[var(--box-line)] text-[var(--box-muted)] hover:border-[var(--box-muted)]",
-        dim && !on && "opacity-50",
-      )}
+      className={cn("chip h-9 gap-2 px-3 text-[13px]", on && "is-on", dim && !on && "opacity-50")}
     >
       {children}
-      <span className="font-mono text-[10px] tabular-nums text-[var(--box-faint)]">{count}</span>
+      <span className={cn("text-[11.5px] tabular-nums", on ? "opacity-70" : "text-[var(--box-faint)]")}>{count}</span>
     </button>
   );
 }
@@ -587,7 +548,7 @@ function NewFolder({ onMade }: { onMade: (id: string) => void }) {
   };
   return open ? (
     <form
-      className="pill flex h-8 items-center gap-1.5 border border-[var(--box-fg)] pl-2.5 pr-1"
+      className="flex h-9 items-center gap-1.5 rounded-full border border-[var(--box-fg)] bg-[var(--surface)] pl-3.5 pr-1.5"
       onSubmit={(e) => {
         e.preventDefault();
         done();
@@ -611,7 +572,7 @@ function NewFolder({ onMade }: { onMade: (id: string) => void }) {
     <button
       type="button"
       onClick={() => setOpen(true)}
-      className="pill flex h-8 items-center gap-1.5 border border-dashed border-[var(--box-line)] px-2.5 text-[12.5px] text-[var(--box-muted)] transition-colors hover:border-[var(--box-fg)] hover:text-[var(--box-fg)]"
+      className="chip h-9 gap-1.5 border-dashed px-3 text-[13px]"
     >
       <FolderPlus size={14} strokeWidth={1.5} />
       Folder
@@ -669,10 +630,10 @@ function FolderTools({ id, name }: { id: string; name: string }) {
 
 function Row({ label, hint, children, inline }: { label: string; hint?: string; children: ReactNode; inline?: boolean }) {
   return (
-    <div className={cn("flex gap-3", inline ? "items-center justify-between gap-8" : "flex-col items-start")}>
+    <div className={cn("card flex gap-3 px-5 py-4", inline ? "items-center justify-between gap-6" : "flex-col items-start")}>
       <div>
-        <div className="text-[15px]">{label}</div>
-        {hint && <div className="mt-0.5 max-w-[52ch] text-[12.5px] text-[var(--box-faint)]">{hint}</div>}
+        <div className="text-[15px] font-medium">{label}</div>
+        {hint && <div className="mt-0.5 max-w-[52ch] text-[12.5px] text-[var(--box-muted)]">{hint}</div>}
       </div>
       {children}
     </div>
@@ -681,17 +642,13 @@ function Row({ label, hint, children, inline }: { label: string; hint?: string; 
 
 function Toggle({ label, hint, on, set }: { label: string; hint?: string; on: boolean; set: (v: boolean) => void }) {
   return (
-    <button type="button" onClick={() => set(!on)} aria-pressed={on} className="flex items-center justify-between gap-6 text-left">
+    <button type="button" role="switch" onClick={() => set(!on)} aria-checked={on} className="card press-soft flex items-center justify-between gap-6 px-5 py-4 text-left">
       <span>
-        <span className="block text-[15px]">{label}</span>
-        {hint && <span className="mt-0.5 block max-w-[46ch] text-[12.5px] text-[var(--box-faint)]">{hint}</span>}
+        <span className="block text-[15px] font-medium">{label}</span>
+        {hint && <span className="mt-0.5 block max-w-[46ch] text-[12.5px] text-[var(--box-muted)]">{hint}</span>}
       </span>
-      <span className={cn("pill relative h-5 w-9 shrink-0 border transition-colors", on ? "border-[var(--color-gold)]" : "border-[var(--box-line)]")}>
-        <motion.span
-          className={cn("pill absolute top-[3px] h-3 w-3", on ? "bg-[var(--color-gold)]" : "bg-[var(--box-faint)]")}
-          animate={{ left: on ? 19 : 3 }}
-          transition={{ duration: 0.3, ease: EASE_OUT }}
-        />
+      <span className={cn("relative h-7 w-12 shrink-0 rounded-full transition-colors duration-150", on ? "bg-[var(--box-fg)]" : "bg-[var(--box-line)]")}>
+        <span className={cn("absolute top-1 h-5 w-5 rounded-full bg-[var(--surface)] shadow transition-[left] duration-200 ease-out", on ? "left-6" : "left-1")} />
       </span>
     </button>
   );
@@ -701,13 +658,12 @@ function Stepper({ value, onChange }: { value: number; onChange: (v: number) => 
   const steps = [0.8, 0.9, 1, 1.12, 1.25, 1.4];
   const i = steps.findIndex((s) => Math.abs(s - value) < 0.01);
   return (
-    <div className="flex shrink-0 items-center gap-1">
+    <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-[var(--box-hover)] p-1">
       {steps.map((s, k) => (
-        <button key={s} type="button" onClick={() => onChange(s)} aria-label={`Size ${k + 1}`} className="flex h-8 w-7 items-end justify-center pb-1.5">
-          <span className={cn("block w-2 transition-colors", k <= i ? "bg-[var(--box-fg)]" : "bg-[var(--box-line)]")} style={{ height: 6 + k * 3 }} />
+        <button key={s} type="button" onClick={() => onChange(s)} aria-label={`Size ${k + 1}`} aria-pressed={k === i} className="press flex h-9 w-8 items-end justify-center rounded-full pb-2 hover:bg-[var(--box-hover)]">
+          <span className={cn("block w-2 rounded-full transition-colors duration-150", k <= i ? "bg-[var(--box-fg)]" : "bg-[var(--box-line)]")} style={{ height: 6 + k * 3 }} />
         </button>
       ))}
     </div>
   );
 }
-

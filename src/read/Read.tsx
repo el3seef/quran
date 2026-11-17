@@ -1,12 +1,12 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Fragment, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   LayoutGrid,
   Search as SearchIcon,
   Bookmark,
   Check,
-  ChevronDown,
+  ChevronRight,
   Copy,
   Mic,
   Share2,
@@ -14,6 +14,7 @@ import {
   PictureInPicture2,
   Highlighter,
   Settings2,
+  Glasses,
   Rows3,
   RectangleHorizontal,
   BookOpen,
@@ -50,12 +51,12 @@ import { close as closePlayer, loadTiming, recite, recitePart, toggle as toggleP
 import { AyahSlider } from "@/components/ui/slider";
 import { SurahArt } from "@/components/SurahCard";
 import { SearchBox } from "@/components/SearchBox";
-import { ImmersivePanel, MenuGlyph, Reveal, SettingsGlyph } from "@/components/ImmersivePanel";
-import { BracketButton } from "@/components/bits";
-import { BrainGlyph, ModeGlyph, NoteGlyph } from "@/components/glyphs";
+import { ImmersivePanel, Reveal } from "@/components/ImmersivePanel";
+import { BrainGlyph, NoteGlyph } from "@/components/glyphs";
+import { BookSwitch, ReadingMenu, ReadingSwitches, SheetSwitch } from "./ReadingControls";
 import { arabicText, loadSurah, loadTranslit, pad3, spellHonorifics, translationText, type Surah, type SurahData, type Translation, type Verse } from "@/lib/data";
 import { HIGHLIGHT_COLORS, useStore, type Highlight, type HighlightField, type Settings } from "@/lib/store";
-import { flipAngle, holdFlip, settleFlip, useUI, type MenuItem } from "@/lib/ui";
+import { useUI, type MenuItem } from "@/lib/ui";
 import { playHighlight, sfx, strokeEnd, strokeMove, strokeRecently } from "@/lib/sound";
 import { isLongPressMenu } from "@/lib/touch";
 import { useTouchSelect } from "./touchSelect";
@@ -68,6 +69,7 @@ import { IndexView, INDEX_VIEWS, type IndexKind } from "@/pages/IndexViews";
 import { AyahPeek } from "./Peek";
 import { AyahWindows, BringUp } from "./AyahWindows";
 import { ayn, nameMarks } from "@/lib/names";
+import { surahColor } from "@/lib/surahColor";
 
 const GLOSSED = ".gl, .saw, .hon"; // translation terms and honorifics with a meaning on hover
 // the settings an ayah is drawn with
@@ -148,6 +150,15 @@ export function Read({ surahs, juz, start, onIndex, mobile, below }: Props) {
   // the ayahs as a book: the multiple-ayah view, with the Arabic alone or a translation alone
   const bookMode = settings.view === 3 && settings.readingMode !== "both" && settings.book;
   const [panel, setPanel] = useState<null | "settings" | "saved" | "reflection" | "search" | "guide">(null);
+  // (the site's navigation asks for one: Settings, from the rail or the dock)
+  useEffect(() => {
+    const on = (e: Event) => {
+      const want = (e as CustomEvent).detail as typeof panel;
+      setPanel((p) => (p === want ? null : want));
+    };
+    window.addEventListener("reader-panel", on);
+    return () => window.removeEventListener("reader-panel", on);
+  }, []);
   const [tip, setTip] = useState<Tip | null>(null);
   const closeTip = useCallback(() => setTip(null), []);
   // a panel opened over the page: what was floating over the page goes
@@ -169,8 +180,6 @@ export function Read({ surahs, juz, start, onIndex, mobile, below }: Props) {
     return () => window.removeEventListener("pointerdown", on, true);
   }, []);
   const [outside, setOutside] = useState<HTMLElement | null>(null); // around the frame, not turning with it
-  const [turning, setTurning] = useState<HTMLElement | null>(null); // over the frame, turning with it
-  const [edges, setEdges] = useState<HTMLElement | null>(null); // beside the frame, whichever face shows
   const [backFace, setBackFace] = useState<HTMLElement | null>(null);
   const [share, setShare] = useState<ShareContent | null>(null);
   // a voice note on an ayah, or on a highlighted part of one (hid + quote)
@@ -195,8 +204,6 @@ export function Read({ surahs, juz, start, onIndex, mobile, below }: Props) {
 
   useLayoutEffect(() => {
     setOutside(document.querySelector<HTMLElement>("[data-frame-still]"));
-    setTurning(document.querySelector<HTMLElement>("[data-frame-outside]"));
-    setEdges(document.querySelector<HTMLElement>("[data-frame-edges]"));
     setBackFace(document.querySelector<HTMLElement>("[data-frame-back]"));
   }, []);
 
@@ -1876,119 +1883,21 @@ export function Read({ surahs, juz, start, onIndex, mobile, below }: Props) {
     show();
   };
 
-  /* ── turning the frame over with a finger (touch): a sideways swipe from either side of it.
-     The first few pixels decide: clearly sideways, it turns live under the finger, and
-     letting go settles it on the nearer face, a flick carrying it over; up or down, it is
-     left to scrolling; a press held first is the phone selecting words, left alone too.
-     (From a wide band at each side, not a thin strip at the very edge: there the phone's own back
-     gesture lives.) ── */
-  const coarse = useMemo(() => matchMedia("(pointer: coarse)").matches, []);
-  // a click on a tab: over toward that side (-1 brings the right edge toward the reader)
-  const turnOver = (toward: 1 | -1) => {
-    if (useUI.getState().flipped) return backToAyahs(toward);
-    settleFlip(true, 0, toward);
-    setFlipped(true);
-  };
-  // from the summary back to the ayahs (from the opening page, straight into ayah 1); a tab turns
-  // it on round the way it pulls
-  const backToAyahs = (toward?: 1 | -1) => {
+  // from the summary back to the ayahs (from the opening page, straight into ayah 1)
+  const backToAyahs = () => {
     if (activeRef.current < 1) {
       scrollToAyah(1, false);
       setActive(1);
     }
-    if (toward) settleFlip(false, 0, toward);
     setFlipped(false);
   };
-  // the context switch, at the foot of the frame: wherever Quraan Made Easy's text is showing
+  // the context switch, at the foot of the panel: wherever Quraan Made Easy's text is showing
   const showCtx = settings.translation === "qme" && settings.readingMode !== "arabic";
-
-  const swipeOff = !data || focus || !!panel || aboutOpen;
-  useEffect(() => {
-    const face = turning?.parentElement; // the frame as it turns: both its faces
-    if (!coarse || !face || swipeOff) return;
-    type G = { x0: number; y0: number; t0: number; engaged: boolean; x: number; base: number; width: number; lastX: number; lastT: number; v: number };
-    let g: G | null = null;
-    const selecting = () => {
-      const sel = window.getSelection();
-      return !!sel && !sel.isCollapsed;
-    };
-    // a finger lifted, or a second one come down: the frame settles on the nearer face
-    const finish = (allowTurn: boolean) => {
-      if (!g?.engaged) {
-        g = null;
-        return;
-      }
-      const moved = flipAngle.get() - g.base;
-      const vel = g.v * (190 / g.width) * 1000; // degrees a second
-      const wasBack = useUI.getState().flipped;
-      const turn = allowTurn && (Math.abs(moved) > 70 || (Math.abs(vel) > 300 && Math.sign(vel) === Math.sign(moved) && Math.abs(moved) > 25));
-      const toBack = turn ? !wasBack : wasBack;
-      settleFlip(toBack, turn ? vel : 0);
-      if (toBack !== wasBack) {
-        // back from the opening page goes straight into ayah 1, as the tabs do
-        if (!toBack && activeRef.current < 1) {
-          scrollToAyah(1, false);
-          setActive(1);
-        }
-        setFlipped(toBack);
-      }
-      g = null;
-    };
-    const start = (e: TouchEvent) => {
-      const t = e.touches[0];
-      if (e.touches.length !== 1 || !t) return finish(false); // a pinch, or two fingers for the menu
-      const target = e.target as HTMLElement | null;
-      const box = face.getBoundingClientRect();
-      // only from either side: the outer quarter of the frame (the middle, where the words are,
-      // never turns it), wide enough to start inside the phone's own back-gesture strip
-      const band = Math.max(64, box.width * 0.25);
-      const fromSide = t.clientX - box.left < band || box.right - t.clientX < band;
-      if (!fromSide || target?.closest?.("input, textarea, select, [contenteditable], [data-no-swipe]") || selecting()) {
-        g = null;
-        return;
-      }
-      const now = performance.now();
-      g = { x0: t.clientX, y0: t.clientY, t0: now, engaged: false, x: t.clientX, base: 0, width: box.width || 1, lastX: t.clientX, lastT: now, v: 0 };
-    };
-    const move = (e: TouchEvent) => {
-      const t = e.touches[0];
-      if (!g || !t) return;
-      if (!g.engaged) {
-        const dx = t.clientX - g.x0, dy = t.clientY - g.y0;
-        if (Math.hypot(dx, dy) < 10) return;
-        // clearly sideways, and not after a press held to select words: otherwise not a turn
-        if (Math.abs(dx) < 1.8 * Math.abs(dy) || performance.now() - g.t0 > 450 || selecting()) {
-          g = null;
-          return;
-        }
-        g.engaged = true;
-        holdFlip();
-        g.base = flipAngle.get();
-        g.x = t.clientX; // from here, so the frame does not jump by the first few pixels
-        setTip(null);
-        setMenu(null);
-      }
-      if (e.cancelable) e.preventDefault();
-      const now = performance.now();
-      g.v = 0.6 * g.v + 0.4 * ((t.clientX - g.lastX) / Math.max(1, now - g.lastT));
-      g.lastX = t.clientX;
-      g.lastT = now;
-      flipAngle.set(g.base + ((t.clientX - g.x) / g.width) * 190);
-    };
-    const end = () => finish(true);
-    const cancel = () => finish(false);
-    face.addEventListener("touchstart", start, { passive: true });
-    face.addEventListener("touchmove", move, { passive: false });
-    face.addEventListener("touchend", end);
-    face.addEventListener("touchcancel", cancel);
-    return () => {
-      finish(false);
-      face.removeEventListener("touchstart", start);
-      face.removeEventListener("touchmove", move);
-      face.removeEventListener("touchend", end);
-      face.removeEventListener("touchcancel", cancel);
-    };
-  }, [coarse, turning, swipeOff, setFlipped]); // eslint-disable-line react-hooks/exhaustive-deps
+  // the ways to read, from the top bar (a sheet on a phone, a card on a computer)
+  const [reading, setReading] = useState<DOMRect | null>(null);
+  const closeReading = useCallback(() => setReading(null), []);
+  // under the surah's name: the ayah, and (one at a time, its translation showing) the theme it is in
+  const subtitle = settings.view === 1 && settings.readingMode !== "arabic" && theme && active >= 1 ? theme : surah.en;
 
   return (
     <motion.div
@@ -2000,56 +1909,87 @@ export function Read({ surahs, juz, start, onIndex, mobile, below }: Props) {
       transition={{ duration: 0.4 }}
       onContextMenu={onContextMenu}
     >
-      {/* header */}
+      {/* the top bar: back to the surahs; the surah (a tap: its summary); the ways to read; search,
+          saved, focus (and settings on a phone: on a computer the rail has it) */}
       <header
         className={cn(
-          "relative z-20 flex shrink-0 items-center justify-between gap-1.5 overflow-hidden border-b border-[var(--box-line)] pl-3 pr-[7px] transition-[height,opacity,border-color] duration-500 sm:gap-2 sm:pl-4 md:gap-3 md:pl-7 md:pr-[9px]",
-          focus ? "h-0 border-transparent opacity-0" : "h-12 md:h-[52px]",
+          "relative z-20 flex shrink-0 items-center gap-2 overflow-hidden px-3 transition-[height,opacity] duration-300 md:gap-3 md:px-5",
+          focus ? "h-0 opacity-0" : "h-[64px] md:h-[76px]",
         )}
         aria-hidden={focus || undefined}
       >
-        <div className="flex min-w-0 items-baseline gap-2.5">
-          {!mobile && <span className="font-mono text-[11px] text-[var(--box-faint)] tabular-nums">{pad3(surahN)}</span>}
-          <FitName text={surah.tc} className="display -my-[0.15em] truncate py-[0.15em] font-serif text-[17px] italic leading-[1.1] md:text-[20px]" />
-          {!mobile && <span className="label hidden min-w-0 shrink-[4] truncate text-[var(--box-faint)] lg:inline">{surah.en}</span>}
+        <button type="button" className={cn("circle-btn", mobile && "is-md")} onClick={() => onIndex(surahN, active)} aria-label="All surahs" title="All surahs (I)">
+          <ArrowLeft size={18} strokeWidth={1.9} />
+        </button>
+        <button
+          type="button"
+          onClick={() => setFlipped(true)}
+          className="press-soft flex min-w-0 flex-1 flex-col items-start rounded-2xl px-1 text-left"
+          title="About this surah (T)"
+          aria-label={`${ayn(surah.tc)}: about this surah`}
+        >
+          <span className="flex max-w-full items-center gap-1">
+            <FitName text={surah.tc} className="truncate text-[17px] font-semibold leading-tight tracking-[-0.02em] md:text-[20px]" />
+            <ChevronRight size={15} strokeWidth={2.2} className="shrink-0 text-[var(--box-faint)]" />
+          </span>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.span
+              key={subtitle}
+              className="block max-w-full truncate text-[12.5px] leading-snug text-[var(--box-muted)] md:text-[13px]"
+              initial={{ opacity: 0, y: 3 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -3 }}
+              transition={{ duration: 0.16, ease: EASE_OUT }}
+            >
+              <span className="tabular-nums text-[var(--box-fg)]">
+                {surahN}:{Math.max(1, Math.min(surah.count, active))}
+              </span>{" "}
+              · {subtitle}
+            </motion.span>
+          </AnimatePresence>
+        </button>
+        <div className="hidden items-center gap-2 xl:flex">
+          <BookSwitch settings={settings} onChange={setMode} />
+          <ReadingSwitches settings={settings} onChange={setMode} />
         </div>
-        <div className="flex shrink-0 items-center">
-          {mobile ? (
-            <>
-              <IconTool label="Surah index" onClick={() => onIndex(surahN, active)}>
-                <LayoutGrid size={16} strokeWidth={1.5} />
-              </IconTool>
-              <IconTool label="Search" onClick={() => setPanel("search")}>
-                <SearchIcon size={16} strokeWidth={1.5} />
-              </IconTool>
-              <IconTool label="Saved: your bookmarks, highlights and notes" onClick={() => setPanel(panel === "saved" ? null : "saved")}>
-                <Bookmark size={16} strokeWidth={1.5} />
-              </IconTool>
-              <IconTool label="Settings" onClick={() => setPanel(panel === "settings" ? null : "settings")}>
-                <SettingsGlyph open={panel === "settings"} size={16} />
-              </IconTool>
-            </>
-          ) : (
-            <>
-              <BracketButton onClick={() => onIndex(surahN, active)} title="Back to the surah index">Index</BracketButton>
-              <BracketButton onClick={() => setPanel("search")} title="Search (press /)">Search</BracketButton>
-              <BracketButton onClick={() => setPanel(panel === "saved" ? null : "saved")} active={panel === "saved"} title="Your bookmarks, highlights and notes">
-                Saved
-              </BracketButton>
-              <BracketButton onClick={() => setPanel(panel === "settings" ? null : "settings")} active={panel === "settings"} title="Settings">
-                Settings
-              </BracketButton>
-            </>
+        <div className="flex shrink-0 items-center gap-1.5 md:gap-2">
+          <button
+            type="button"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setReading((o) => (o ? null : r));
+            }}
+            className={cn("circle-btn xl:hidden", mobile && "is-md", reading && "is-on")}
+            aria-label="Ways to read"
+            aria-expanded={!!reading}
+            title="Ways to read: one ayah, scrolling, or as a book"
+          >
+            <Glasses size={17} strokeWidth={1.9} />
+          </button>
+          <button type="button" onClick={() => setPanel("search")} className={cn("circle-btn", mobile && "is-md")} aria-label="Search" title="Search (/)">
+            <SearchIcon size={17} strokeWidth={1.9} />
+          </button>
+          <button type="button" onClick={() => setPanel(panel === "saved" ? null : "saved")} className={cn("circle-btn", mobile && "is-md", panel === "saved" && "is-on")} aria-label="Saved: your bookmarks, highlights and notes" title="Saved (S)">
+            <Bookmark size={17} strokeWidth={1.9} />
+          </button>
+          {!mobile && (
+            <button type="button" onClick={() => enterFocus(true)} className="circle-btn" aria-label="Focus: only the Qur'an" title="Focus: only the Qur'an (F)">
+              <Maximize2 size={16} strokeWidth={1.9} />
+            </button>
           )}
-          <IconTool label="Focus: only the Qur'an (F)" onClick={() => enterFocus(true)}>
-            <Maximize2 size={15} strokeWidth={1.5} />
-          </IconTool>
-          <ViewToggle settings={settings} onView={switchView} onMode={setMode} />
+          {mobile && (
+            <button type="button" onClick={() => setPanel(panel === "settings" ? null : "settings")} className={cn("circle-btn is-md", panel === "settings" && "is-on")} aria-label="Settings">
+              <Settings2 size={17} strokeWidth={1.9} />
+            </button>
+          )}
         </div>
       </header>
 
       {/* ayahs */}
       <div className="relative min-h-0 flex-1">
+        {/* (the cards scrolling under the top bar and the foot fade there, not cut) */}
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 z-10 h-4 bg-gradient-to-b from-[var(--box-bg)] to-transparent" />
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-4 bg-gradient-to-t from-[var(--box-bg)] to-transparent" />
         <div
           ref={scroller}
           className={cn("snap-scroller relative h-full", settings.view === 3 && "flow", settings.view === 1 && "paged")}
@@ -2071,7 +2011,7 @@ export function Read({ surahs, juz, start, onIndex, mobile, below }: Props) {
                   it is no box at all, so each ayah is still a full page of the scroller.) */}
               <div className={settings.view === 3 ? "flex min-h-full flex-col justify-center" : "contents"}>
               {bookMode ? (
-                <BookText surah={surahN} data={data} settings={ayahSettings} mobile={mobile} hlByKey={hlByKey} bookmarks={bookmarks} onFitted={onBookFitted} />
+                <BookText surah={surahN} meta={surah} data={data} settings={ayahSettings} mobile={mobile} hlByKey={hlByKey} bookmarks={bookmarks} onFitted={onBookFitted} />
               ) : data.v.map((v) => {
                 const key = `${surahN}:${v.n}`;
                 const near = v.n >= active - 2 && v.n <= Math.max(active, lastShown) + 2;
@@ -2104,34 +2044,6 @@ export function Read({ surahs, juz, start, onIndex, mobile, below }: Props) {
             </>
           )}
         </div>
-        {/* one ayah: the buttons stay still in the corner while the ayahs pass under them, and
-            act on whichever ayah is in the frame */}
-        <AnimatePresence>
-          {settings.view === 1 && verse && (
-            <motion.div
-              key="actions"
-              data-ayah-tools
-              className="absolute bottom-3 right-[30px] z-20 md:bottom-[18px] md:right-3"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25 }}
-            >
-              {(() => {
-                const k = `${surahN}:${verse.n}`;
-                const act = { bookmarked: !!bookmarks[k], notes: notesByKey.get(k) ?? 0, voices: voicesByKey.get(k) ?? 0, reciting: recitingAyah === verse.n, onAction: (a: AyahAction, el: HTMLElement) => onAction(a, verse, el) };
-                // the reading column, then (a hairline between) one's own and giving it on, down the edge
-                return (
-                  <div className="flex flex-col items-center">
-                    <Actions {...act} />
-                    <span className="my-1 h-px w-3.5 bg-[var(--box-line)]" aria-hidden />
-                    <OwnActions {...act} down />
-                  </div>
-                );
-              })()}
-            </motion.div>
-          )}
-        </AnimatePresence>
         {!data && !error && <Loading name={ayn(surah.tc)} />}
         {error && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 text-center">
@@ -2189,28 +2101,62 @@ export function Read({ surahs, juz, start, onIndex, mobile, below }: Props) {
         {focus && <FocusExit onExit={() => enterFocus(false)} />}
       </div>
 
-      {/* footer */}
+      {/* the foot: one ayah at a time, its buttons in a pill (still while the ayahs pass, acting on the
+          one in view); on a computer, the context switch at the end */}
       <footer
         className={cn(
-          "frame-foot relative z-20 flex shrink-0 items-center justify-between gap-4 overflow-hidden border-t border-[var(--box-line)] px-5 transition-[height,opacity,border-color] duration-500 md:px-7",
-          focus ? "h-0 border-transparent opacity-0" : "h-8",
+          "frame-foot relative z-20 flex shrink-0 items-center gap-3 overflow-hidden px-4 transition-[height,opacity] duration-300 md:px-6",
+          focus ? "h-0 opacity-0" : settings.view === 1 ? "h-[62px] md:h-[68px]" : mobile ? "h-2" : "h-11",
         )}
         aria-hidden={focus || undefined}
       >
-        {/* the recitation's controls while the Qur'an is heard (and nothing here until then) */}
-        <PlayerLine />
-        <PlayerBar mobile={mobile} onGo={go} />
-        {showCtx && (
-          <div className="label-sm -mr-2 ml-auto flex h-full shrink-0 items-center gap-2">
-            {/* (the player beside it: a line between the two) */}
-            {playerOn && <span aria-hidden className="h-3.5 w-px bg-[var(--box-line)]" />}
-            <ContextToggle on={settings.showContext} onToggle={toggleContext} compact={mobile && playerOn} />
+        <span className="flex-1 basis-0" />
+        {settings.view === 1 && verse && !focus && (
+          <div data-ayah-tools className="ayah-pill flex shrink-0 items-center rounded-full bg-[var(--surface)] p-1">
+            {(() => {
+              const k = `${surahN}:${verse.n}`;
+              const act = { bookmarked: !!bookmarks[k], notes: notesByKey.get(k) ?? 0, voices: voicesByKey.get(k) ?? 0, reciting: recitingAyah === verse.n, onAction: (a: AyahAction, el: HTMLElement) => onAction(a, verse, el) };
+              // reading it, then (a hairline between) one's own and giving it on
+              return (
+                <>
+                  <Actions {...act} row />
+                  <span className="mx-1 h-5 w-px bg-[var(--box-line)]" aria-hidden />
+                  <OwnActions {...act} />
+                </>
+              );
+            })()}
           </div>
         )}
+        <span className="label-sm flex flex-1 basis-0 justify-end">{showCtx && !mobile && <ContextToggle on={settings.showContext} onToggle={toggleContext} />}</span>
       </footer>
 
       {/* panels */}
       <SettingsPanel open={panel === "settings" || panel === "saved" || panel === "guide"} startTab={panel === "saved" ? "saved" : panel === "guide" ? "guide" : undefined} onClose={() => setPanel(null)} surahs={surahs} onGo={go} mobile={mobile} />
+      <ReadingMenu
+        at={reading}
+        mobile={mobile}
+        onClose={closeReading}
+        settings={settings}
+        onChange={setMode}
+        extra={
+          mobile ? (
+            <div className="mt-4 rounded-[20px] bg-[var(--surface)] px-4 py-1.5">
+              {showCtx && <SheetSwitch label="The bracketed context" on={settings.showContext} onClick={toggleContext} />}
+              <button
+                type="button"
+                onClick={() => {
+                  closeReading();
+                  enterFocus(true);
+                }}
+                className="press-soft flex w-full items-center justify-between rounded-2xl px-1 py-2.5 text-left text-[14.5px]"
+              >
+                Focus: only the Qur'an
+                <Maximize2 size={17} strokeWidth={1.8} className="mr-3.5 text-[var(--box-muted)]" />
+              </button>
+            </div>
+          ) : undefined
+        }
+      />
       <ReflectionPanel open={panel === "reflection"} onClose={() => setPanel(null)} surah={surah} mobile={mobile} />
       <TafsirPanel at={tafsir} onGo={setTafsir} onClose={() => setTafsir(null)} settings={ayahSettings} mobile={mobile} />
       <ImmersivePanel open={panel === "search"} from="left" onClose={() => setPanel(null)} label="Search">
@@ -2290,7 +2236,7 @@ export function Read({ surahs, juz, start, onIndex, mobile, below }: Props) {
                 data={data}
                 mobile={mobile}
                 atStart={active < 1}
-                onBack={() => backToAyahs()}
+                onBack={backToAyahs}
                 onGo={(a) => {
                   setFlipped(false);
                   setTimeout(() => scrollToAyah(a, false), 450);
@@ -2301,127 +2247,53 @@ export function Read({ surahs, juz, start, onIndex, mobile, below }: Props) {
           backFace,
         )}
 
-      {/* anchored outside the frame: the theme above, the slider centred in the space below */}
+      {/* under the panel: the slider through the surah, in a dark dock (on the shell, on a computer) */}
       {outside &&
         createPortal(
-          <div className={cn("absolute inset-0 transition-[opacity,visibility] duration-500", focus &&"pointer-events-none invisible opacity-0")}>
-                {/* the ayah's theme: one ayah at a time, with its translation showing (not the Arabic alone,
-                    not scrolling freely; a book of the translation has its headings in the text) */}
-                <AnimatePresence mode="wait">
-                  {settings.view === 1 && settings.readingMode !== "arabic" && theme && active >= 1 && !panel && !aboutOpen && (
-                    <motion.div
-                      key={theme}
-                      className="theme-tag-at pointer-events-none absolute bottom-full mb-3 max-w-full md:mb-4"
-                      initial={{ opacity: 0, y: 8, filter: "blur(4px)" }}
-                      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                      exit={{ opacity: 0, y: -6, filter: "blur(4px)", transition: { duration: 0.2 } }}
-                      transition={{ duration: 0.5, ease: EASE_OUT }}
-                    >
-                      <span className="theme-tag display block truncate font-serif text-[17px] italic text-[var(--outside-fg)] md:text-[20px]">{theme}</span>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-                <div
-                  className={cn(
-                    "absolute left-0 right-0 px-1 transition-opacity duration-300 md:px-[6%]",
-                    // a panel over the ayahs: the slider has nothing to show (reflection keeps its button, to close it)
-                    (panel && panel !== "reflection") || aboutOpen ? "pointer-events-none opacity-0" : "pointer-events-auto",
-                  )}
-                  style={{
-                    top: `calc(100% + ${Math.max(10, below / 2 - 16)}px)`,
-                    ["--box-fg" as string]: "var(--outside-fg)",
-                    ["--box-line" as string]: "var(--outside-line)",
-                    ["--box-faint" as string]: "var(--outside-faint)",
-                    ["--box-bg-solid" as string]: "var(--outside-bg)",
-                    ["--box-muted" as string]: "var(--outside-muted)",
-                  }}
-                >
-                  <AyahSlider
-                    trackHidden={panel === "reflection" || !settings.slider}
-                    value={Math.min(surah.count, Math.max(1, active))}
-                    max={surah.count}
-                    onChange={(v) => {
-                      setActive(v);
-                      scrollToAyah(v, false);
-                    }}
-                    onEnd={() => setPanel((p) => (p === "reflection" ? null : "reflection"))}
-                    endLabel="Reflect on this surah — write or record your own summary"
-                    endIcon={<BrainGlyph size={18} />}
-                  />
+          <div className={cn("absolute inset-0 transition-[opacity,visibility] duration-300", focus && "pointer-events-none invisible opacity-0")}>
+            <div
+              className={cn(
+                "reader-dock absolute left-1/2 flex h-14 w-[calc(100%-24px)] -translate-x-1/2 items-center gap-2 rounded-full pl-3 pr-1.5 transition-[opacity,width] duration-200 md:pl-4",
+                playerOn ? "md:w-[min(1040px,92%)]" : "md:w-[min(760px,86%)]",
+                // a panel over the ayahs: the slider has nothing to show (reflection keeps its button, to close it)
+                (panel && panel !== "reflection") || aboutOpen ? "pointer-events-none opacity-0" : "pointer-events-auto",
+              )}
+              style={{
+                top: `calc(100% + ${mobile ? 14 : Math.max(8, below / 2 - 28)}px)`,
+                ["--box-fg" as string]: "var(--outside-fg)",
+                ["--box-line" as string]: "var(--outside-line)",
+                ["--box-faint" as string]: "var(--outside-faint)",
+                ["--box-bg-solid" as string]: "var(--outside-bg)",
+                ["--box-muted" as string]: "var(--outside-muted)",
+                ["--box-hover" as string]: "rgba(255, 255, 255, 0.09)",
+              }}
+            >
+              <PlayerLine className="inset-x-7 bottom-[5px]" />
+              {playerOn && (
+                <div className={cn("flex h-full min-w-0 items-center pl-2", mobile ? "flex-1" : "w-[340px] shrink-0")}>
+                  <PlayerBar mobile={mobile} onGo={go} />
                 </div>
+              )}
+              {playerOn && !mobile && <span aria-hidden className="h-6 w-px shrink-0 bg-[var(--box-line)]" />}
+              {!(mobile && playerOn) && (
+              <AyahSlider
+                trackHidden={panel === "reflection" || !settings.slider}
+                value={Math.min(surah.count, Math.max(1, active))}
+                max={surah.count}
+                onChange={(v) => {
+                  setActive(v);
+                  scrollToAyah(v, false);
+                }}
+                onEnd={() => setPanel((p) => (p === "reflection" ? null : "reflection"))}
+                endLabel="Reflect on this surah — write or record your own summary"
+                endIcon={<BrainGlyph size={18} />}
+              />
+              )}
+            </div>
           </div>,
           outside,
         )}
-      {/* desktop: a tab on each side turns the frame over, and back again from the summary (with a
-          panel open over the page, there is nothing to turn: they fade away) */}
-      {edges &&
-        data &&
-        !coarse &&
-        !focus &&
-        createPortal(
-          <div className={cn("transition-opacity duration-300", (panel || aboutOpen) && "pointer-events-none opacity-0")} aria-hidden={panel || aboutOpen ? true : undefined}>
-            <TurnTab side="right" back={flipped} onTurn={() => turnOver(-1)} />
-            <TurnTab side="left" back={flipped} onTurn={() => turnOver(1)} />
-          </div>,
-          edges,
-        )}
     </motion.div>
-  );
-}
-
-/**
- * Just outside the frame's edge, one on each side (desktop): a tab to turn it over and read
- * about the surah, turning toward that side. Hovering it lengthens the line, runs a light along
- * it and names what it opens. (On touch screens a swipe in from either side of the frame turns it.)
- */
-function TurnTab({ side, back, onTurn }: { side: "left" | "right"; back: boolean; onTurn: () => void }) {
-  const [hover, setHover] = useState(false);
-  const right = side === "right";
-  return (
-    <button
-      type="button"
-      onClick={onTurn}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      onFocus={() => setHover(true)}
-      onBlur={() => setHover(false)}
-      aria-label={back ? "Turn the frame back to the ayahs" : "Turn the frame over to read the surah summary"}
-      data-no-tilt
-      className={cn(
-        "pointer-events-auto absolute top-1/2 flex h-40 w-10 -translate-y-1/2 items-center",
-        right ? "left-full pl-[7px]" : "right-full flex-row-reverse pr-[7px]",
-      )}
-    >
-      <span
-        className="relative block w-[4px] overflow-hidden transition-[height,background-color] duration-300 ease-out"
-        style={{ height: hover ? 112 : 64, background: hover ? "var(--color-gold)" : "var(--outside-tab)" }}
-      >
-        {/* a light running along the edge while it is hovered */}
-        {hover && (
-          <motion.span
-            className="absolute inset-x-0 h-8 bg-gradient-to-b from-transparent via-white/80 to-transparent"
-            initial={{ top: "-30%" }}
-            animate={{ top: "110%" }}
-            transition={{ duration: 1.1, repeat: Infinity, ease: EASE_IN_OUT }}
-          />
-        )}
-      </span>
-      {/* centred on the line; the padding balances the letter-spacing after the last letter. On
-          the left it reads upward, its letters facing out like the right one's */}
-      <span
-        className={cn(
-          "label pointer-events-none absolute top-1/2 whitespace-nowrap leading-none text-[var(--outside-fg)] transition-[opacity,transform] duration-300 [writing-mode:vertical-rl]",
-          right ? "left-[19px]" : "right-[19px]",
-        )}
-        style={{
-          opacity: hover ? 1 : 0,
-          transform: `translate(${hover ? 0 : right ? -4 : 4}px, -50%)${right ? "" : " rotate(180deg)"}`,
-          [right ? "paddingTop" : "paddingBottom"]: "0.09em",
-        }}
-      >
-        {back ? "Back to the ayahs" : "Surah summary"}
-      </span>
-    </button>
   );
 }
 
@@ -2447,73 +2319,41 @@ function Opener({
   const phoneStill = useReducedMotion();
   const readerStill = useStore((s) => s.settings.reduceMotion);
   const still = phoneStill || readerStill;
+  const c = surahColor(surah.n);
+  const rise = (d: number) => ({ initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.45, ease: EASE_OUT, delay: d } });
   return (
-    <section data-n={0} className="snap-item snap-page relative flex min-h-full flex-col items-center justify-center overflow-hidden px-8 text-center">
-      <SurahArt n={surah.n} blur={30} className="opacity-45" />
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[var(--box-bg-solid)]/30 to-[var(--box-bg-solid)]/70" />
-      <div className="relative flex flex-col items-center">
-        <motion.span
-          className="label text-[var(--box-muted)]"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-        >
+    <section data-n={0} className="snap-item snap-page relative flex min-h-full flex-col items-center justify-center px-3 py-3 text-center md:px-8">
+      <div className="card-tint relative flex w-full max-w-[900px] flex-col items-center overflow-hidden px-6" style={{ background: c.bg, paddingTop: 44 * k, paddingBottom: 40 * k }}>
+        <motion.span className="rounded-full bg-white/55 px-3 py-1 text-[12.5px] font-medium" {...rise(0.1)}>
           Surah {surah.n} · {surah.place === "makkah" ? "Makkan" : "Madinan"} · {surah.count} ayat
         </motion.span>
-        <motion.span
-          className="mt-6 font-kufi leading-none text-[var(--box-fg)]"
-          style={{ fontSize: (mobile ? 58 : 86) * k }}
-          initial={{ opacity: 0, y: 20, filter: "blur(8px)" }}
-          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          transition={{ duration: 1, ease: EASE_OUT, delay: 0.35 }}
-          dir="rtl"
-          lang="ar"
-        >
+        <motion.span className="mt-6 font-kufi leading-none" style={{ fontSize: (mobile ? 58 : 86) * k }} dir="rtl" lang="ar" {...rise(0.16)}>
           {surah.ar}
         </motion.span>
-        <motion.span
-          className="display mt-6 font-serif italic leading-none"
-          style={{ fontSize: (mobile ? 30 : 42) * k }}
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, ease: EASE_OUT, delay: 0.55 }}
-        >
+        <motion.span className="mt-5 font-semibold leading-none tracking-[-0.03em]" style={{ fontSize: (mobile ? 30 : 42) * k }} {...rise(0.22)}>
           {nameMarks(surah.tc)}
         </motion.span>
-        <span className="label mt-3 text-[var(--box-muted)]">{surah.en}</span>
+        <span className="mt-2.5 text-[14px]" style={{ color: c.deep }}>
+          {surah.en}
+        </span>
         {surah.bism && (
-          <motion.div
-            className={cn("quran text-[var(--box-fg)]", indopak && "indopak")}
-            style={{ fontSize: (mobile ? 26 : 34) * k, marginTop: 40 * k }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.92 }}
-            transition={{ duration: 1.2, delay: 0.9 }}
-            lang="ar"
-          >
+          <motion.div className={cn("quran text-[#111113]", indopak && "indopak")} style={{ fontSize: (mobile ? 26 : 34) * k, marginTop: 34 * k }} lang="ar" {...rise(0.3)}>
             {bismillah}
           </motion.div>
         )}
-        <motion.div
-          className="flex flex-col items-center gap-5"
-          style={{ marginTop: 44 * k }}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 1.1, ease: EASE_OUT }}
-        >
-          <button
-            type="button"
-            onClick={onSummary}
-            className="btn-primary inline-flex items-center justify-center border border-[var(--box-fg)]/60 px-4 py-2.5 transition-colors hover:border-[var(--box-fg)] hover:bg-[var(--box-fg)] hover:text-[var(--box-bg-solid)]"
-          >
-            <span className="label">{mobile ? "Surah summary" : "Read the surah summary"}</span>
+        <motion.div className="flex flex-col items-center gap-4" style={{ marginTop: 34 * k }} {...rise(0.36)}>
+          <button type="button" onClick={onSummary} className="press inline-flex h-11 items-center gap-2 rounded-full bg-[#111113] px-5 text-[14px] font-medium text-white">
+            About this surah
+            <ArrowRight size={15} strokeWidth={2} />
           </button>
           <motion.span
-            className="label text-[var(--box-faint)]"
-            whileInView={still ? undefined : { y: [0, 5, 0] }}
+            className="text-[13px]"
+            style={{ color: c.deep }}
+            whileInView={still ? undefined : { y: [0, 4, 0] }}
             viewport={{ once: true }}
             transition={{ duration: 2.2, repeat: 4, ease: "easeInOut" }}
           >
-            Scroll to begin surah ↓
+            Scroll to begin ↓
           </motion.span>
         </motion.div>
       </div>
@@ -2555,21 +2395,25 @@ function FocusExit({ onExit }: { onExit: () => void }) {
 }
 
 function Closing({ surah, next, onReflect, onNext }: { surah: Surah; next: Surah | null; onReflect: () => void; onNext: () => void }) {
+  const n = next ? surahColor(next.n) : null;
   return (
-    <section data-n={surah.count + 1} className="snap-item snap-page relative flex min-h-full flex-col items-center justify-center gap-8 px-8 text-center">
-      <div className="label text-[var(--box-faint)]">End of {nameMarks(surah.tc)}</div>
-      <div className="display font-serif text-[26px] italic md:text-[34px]">What did this surah leave with you?</div>
-      <CompleteMark surah={surah} />
-      <div className="flex flex-wrap items-center justify-center gap-3">
-        <button type="button" onClick={onReflect} className="btn-primary label inline-flex items-center gap-2 border border-[var(--box-fg)] px-3 py-2 transition-colors hover:bg-[var(--box-fg)] hover:text-[var(--box-bg-solid)]">
-          <BrainGlyph size={14} />
-          Write a reflection
-        </button>
-        {next && (
-          <button type="button" onClick={onNext} className="btn-secondary label border border-[var(--box-line)] px-3 py-2 text-[var(--box-muted)] transition-colors hover:border-[var(--box-fg)] hover:text-[var(--box-fg)]">
-            Next · {pad3(next.n)} {nameMarks(next.tc)} →
+    <section data-n={surah.count + 1} className="snap-item snap-page relative flex min-h-full flex-col items-center justify-center px-3 py-3 text-center md:px-8">
+      <div className="card flex w-full max-w-[900px] flex-col items-center gap-7 px-6 py-12 md:py-16">
+        <span className="rounded-full bg-[var(--box-hover)] px-3 py-1 text-[12.5px] font-medium text-[var(--box-muted)]">End of {nameMarks(surah.tc)}</span>
+        <div className="max-w-[20ch] text-[26px] font-semibold leading-tight tracking-[-0.025em] md:text-[34px]">What did this surah leave with you?</div>
+        <CompleteMark surah={surah} />
+        <div className="flex flex-wrap items-center justify-center gap-2.5">
+          <button type="button" onClick={onReflect} className="btn-primary inline-flex h-12 items-center gap-2 px-5 text-[14px] font-medium">
+            <BrainGlyph size={16} />
+            Write a reflection
           </button>
-        )}
+          {next && n && (
+            <button type="button" onClick={onNext} className="press inline-flex h-12 items-center gap-2 rounded-full px-5 text-[14px] font-medium text-[#111113]" style={{ background: n.bg }}>
+              Next · {nameMarks(next.tc)}
+              <ArrowRight size={15} strokeWidth={2} />
+            </button>
+          )}
+        </div>
       </div>
     </section>
   );
@@ -2583,175 +2427,6 @@ function Loading({ name }: { name: string }) {
         <motion.span className="absolute inset-y-0 w-1/3 bg-[var(--color-gold)]" animate={{ left: ["-35%", "100%"] }} transition={{ duration: 1.1, repeat: Infinity, ease: EASE_IN_OUT }} />
       </span>
     </div>
-  );
-}
-
-/* ── the view switch: one ayah or many; the one already chosen, tapped again, opens its ways of
-   reading (Arabic and a translation, either alone, and in the multiple-ayah view either alone as
-   a book), so every way to read is a tap or two from the page ── */
-type Mode = { mode: Settings["readingMode"]; book: boolean };
-const MODES: Record<1 | 3, (Mode & { label: string; sub?: string })[]> = {
-  1: [
-    { mode: "both", book: false, label: "Arabic + translation" },
-    { mode: "arabic", book: false, label: "Arabic only" },
-    { mode: "translation", book: false, label: "Translation only" },
-  ],
-  3: [
-    { mode: "both", book: false, label: "Arabic + translation" },
-    { mode: "arabic", book: false, label: "Arabic only", sub: "Ayah by ayah" },
-    { mode: "arabic", book: true, label: "Arabic only", sub: "As a book" },
-    { mode: "translation", book: false, label: "Translation only", sub: "Ayah by ayah" },
-    { mode: "translation", book: true, label: "Translation only", sub: "As a book" },
-  ],
-};
-
-function ViewToggle({ settings, onView, onMode }: { settings: Settings; onView: (v: 1 | 3) => void; onMode: (p: Partial<Settings>) => void }) {
-  const view = settings.view;
-  const [open, setOpen] = useState<DOMRect | null>(null);
-  const close = useCallback(() => setOpen(null), []);
-  return (
-    <>
-      {/* (the gap beside it the same as the gap above it: in a rounded frame its corner nests in the frame's) */}
-      <div className="view-switch pill ml-0.5 flex border border-[var(--box-line)] p-0.5 sm:ml-1 md:ml-2" role="radiogroup" aria-label="View">
-        {([1, 3] as const).map((v) => {
-          const on = view === v;
-          return (
-            <button
-              key={v}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              aria-haspopup={on ? "menu" : undefined}
-              aria-expanded={on ? !!open : undefined}
-              aria-label={v === 1 ? "One ayah" : "Multiple ayahs"}
-              title={on ? "Ways to read" : v === 1 ? "One ayah" : "Multiple ayahs"}
-              // switching views is heard as a switch (as the context switch): up to many, down to one;
-              // the chosen one, opening its ways to read, taps
-              data-sfx={on ? undefined : v === 3 ? "on" : "off"}
-              onClick={(e) => {
-                if (!on) return onView(v);
-                const r = e.currentTarget.getBoundingClientRect();
-                setOpen((o) => (o ? null : r));
-              }}
-              className={cn("relative flex h-7 items-center justify-center transition-[width] duration-300", on ? "w-10 md:w-11" : "w-7 md:w-8")}
-            >
-              {on && <motion.span layoutId="view-toggle" className="pill absolute inset-0 bg-[var(--box-fg)]" transition={{ duration: 0.35, ease: EASE_OUT }} />}
-              <span className={cn("relative flex items-center gap-1", on ? "text-[var(--box-bg-solid)]" : "text-[var(--box-muted)]")}>
-                <span className="flex flex-col items-center justify-center gap-[3px]">
-                  {Array.from({ length: v }, (_, i) => (
-                    <span key={i} className="block h-px w-3.5 bg-current" />
-                  ))}
-                </span>
-                {on && <ChevronDown size={10} strokeWidth={2.4} className={cn("transition-transform duration-300", open && "rotate-180")} />}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-      {createPortal(<ModeMenu at={open} settings={settings} onPick={onMode} onClose={close} />, document.body)}
-    </>
-  );
-}
-
-function ModeMenu({ at, settings, onPick, onClose }: { at: DOMRect | null; settings: Settings; onPick: (p: Partial<Settings>) => void; onClose: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!at) return;
-    const down = (e: PointerEvent) => {
-      const t = e.target as HTMLElement;
-      if (ref.current?.contains(t) || t.closest?.('[role="radiogroup"][aria-label="View"]')) return;
-      onClose();
-    };
-    const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("pointerdown", down, true);
-    window.addEventListener("keydown", key);
-    return () => {
-      window.removeEventListener("pointerdown", down, true);
-      window.removeEventListener("keydown", key);
-    };
-  }, [at, onClose]);
-  const view = settings.view;
-  const cur = (m: Mode) => m.mode === settings.readingMode && (view === 1 || m.mode === "both" || m.book === settings.book);
-  // (the ways shown as marks: the one the pointer is on, or else the one chosen, named under them)
-  const [hover, setHover] = useState<number | null>(null);
-  useEffect(() => setHover(null), [at]);
-  const named = MODES[view][hover ?? Math.max(0, MODES[view].findIndex(cur))];
-  const W = view === 1 ? 196 : 300;
-  const left = at ? Math.max(12, Math.min(window.innerWidth - W - 12, at.right - W)) : 0;
-  return (
-    <AnimatePresence>
-      {at && (
-        <motion.div
-          ref={ref}
-          role="menu"
-          aria-label={view === 1 ? "One ayah: ways to read" : "Multiple ayahs: ways to read"}
-          className="theme-pop fixed z-[80] border border-[var(--box-line)] bg-[var(--box-bg-solid)] p-1.5 text-[var(--box-fg)] shadow-[0_18px_50px_-14px_rgba(0,0,0,0.7)]"
-          style={{ left, top: at.bottom + 8, width: W }}
-          initial={{ opacity: 0, y: -6, scale: 0.97 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -4, scale: 0.98, transition: { duration: 0.12 } }}
-          transition={{ duration: 0.22, ease: EASE_OUT }}
-        >
-          <div className="label px-2 pb-1.5 pt-1 text-[var(--box-faint)]">{view === 1 ? "One ayah" : "Multiple ayahs"}</div>
-          <div className="flex items-stretch gap-0.5" onPointerLeave={() => setHover(null)}>
-            {MODES[view].map((m, i) => {
-              const on = cur(m);
-              const name = m.sub ? `${m.label}, ${m.sub.toLowerCase()}` : m.label;
-              return (
-                <Fragment key={`${m.mode}-${m.book}`}>
-                  {/* (a hairline between the two together, the Arabic alone and the translation alone) */}
-                  {i > 0 && m.mode !== MODES[view][i - 1].mode && <span className="mx-0.5 my-1.5 w-px bg-[var(--box-line)]" aria-hidden />}
-                  <button
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={on}
-                    aria-label={name}
-                    title={name}
-                    onPointerEnter={() => setHover(i)}
-                    onFocus={() => setHover(i)}
-                    onClick={() => {
-                      if (!on) onPick(view === 3 && m.mode !== "both" ? { readingMode: m.mode, book: m.book } : { readingMode: m.mode });
-                      onClose();
-                    }}
-                    className={cn(
-                      "relative flex h-11 flex-1 items-center justify-center transition-colors hover:bg-[var(--box-hover)] hover:text-[var(--box-fg)]",
-                      on ? "bg-[var(--box-hover)] text-[var(--color-gold)]" : "text-[var(--box-muted)]",
-                    )}
-                  >
-                    <ModeGlyph mode={m.mode} book={m.book} size={26} />
-                    {on && <span className="absolute inset-x-3 bottom-1 h-px bg-current" aria-hidden />}
-                  </button>
-                </Fragment>
-              );
-            })}
-          </div>
-          <div className="label-sm truncate px-2 pb-1 pt-2 text-[var(--box-muted)]">{named ? (named.sub ? `${named.label} · ${named.sub}` : named.label) : ""}</div>
-          {view === 3 && settings.readingMode === "translation" && settings.book && (
-            <MenuSwitch label="Theme headings" on={settings.bookThemes} onClick={() => onPick({ bookThemes: !settings.bookThemes })} />
-          )}
-          {view === 3 && settings.readingMode === "arabic" && settings.book && (
-            <MenuSwitch label="Lines as the printed mushaf" on={settings.bookLines} onClick={() => onPick({ bookLines: !settings.bookLines })} />
-          )}
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
-function MenuSwitch({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      role="menuitemcheckbox"
-      aria-checked={on}
-      onClick={onClick}
-      className="mt-1 flex w-full items-center justify-between gap-3 border-t border-[var(--box-line)] px-2 pb-1.5 pt-2.5 text-left transition-colors hover:bg-[var(--box-hover)]"
-    >
-      <span className="text-[13px] text-[var(--box-muted)]">{label}</span>
-      <span className={cn("pill relative h-4 w-7 shrink-0 border transition-colors", on ? "border-[var(--color-gold)]" : "border-[var(--box-line)]")}>
-        <span className={cn("pill absolute top-[2px] h-2.5 w-2.5 transition-all duration-300", on ? "left-[13px] bg-[var(--color-gold)]" : "left-[2px] bg-[var(--box-faint)]")} />
-      </span>
-    </button>
   );
 }
 
@@ -2784,14 +2459,6 @@ function FitName({ text, className }: { text: string; className?: string }) {
   );
 }
 
-function IconTool({ children, label, onClick }: { children: React.ReactNode; label: string; onClick: () => void }) {
-  return (
-    <button type="button" aria-label={label} title={label} onClick={onClick} className="pill flex h-9 w-[26px] items-center justify-center text-[var(--box-muted)] hover:bg-[var(--box-hover)] hover:text-[var(--box-fg)] sm:w-8 md:w-9">
-      {children}
-    </button>
-  );
-}
-
 function SearchPanelBody({
   surahs,
   juz,
@@ -2817,17 +2484,17 @@ function SearchPanelBody({
   };
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-start justify-between px-5 pt-4 md:px-8 md:pt-6">
+      <div className="flex h-[64px] shrink-0 items-center justify-between gap-3 px-4 md:h-[76px] md:px-6">
         <Reveal>
-          <div className="label text-[var(--box-faint)]">Search</div>
-          <div className="mt-1 text-[13px] text-[var(--box-muted)]">A surah, 2:255, a juz, or any word</div>
+          <div className="text-[20px] font-semibold leading-tight tracking-[-0.02em] md:text-[22px]">Search</div>
+          <div className="text-[12.5px] text-[var(--box-muted)]">A surah, 2:255, a juz, or any word</div>
         </Reveal>
-        <button type="button" onClick={onClose} aria-label="Close search" className="flex h-9 w-9 items-center justify-center hover:bg-[var(--box-hover)]">
-          <MenuGlyph open />
+        <button type="button" onClick={onClose} aria-label="Close search" className="circle-btn">
+          <XIcon size={18} strokeWidth={1.9} />
         </button>
       </div>
       {/* above the surah list, so its dropdown of results is not covered by the list */}
-      <Reveal className="relative z-20 px-5 pt-6 md:px-8 md:pt-8">
+      <Reveal className="relative z-20 px-4 pt-2 md:px-8 md:pt-4">
         <div className="mx-auto w-full max-w-[640px]">
           {/* (on a touch screen not at once: the keyboard would cover the ways of browsing) */}
           <SearchBox surahs={surahs} juz={juz} onPick={onPick} autoFocus={!window.matchMedia("(pointer: coarse)").matches} dropdown="overlay" inputClassName="h-12 text-[12px]" />
@@ -2835,7 +2502,7 @@ function SearchPanelBody({
       </Reveal>
       {/* or browse: each way of seeing the Qur'an a tab of its own, in plain view */}
       <Reveal className="relative z-10 px-5 pt-6 md:px-8 md:pt-7">
-        <div className="mx-auto flex w-full max-w-[860px] flex-wrap justify-center gap-1.5" role="tablist" aria-label="Browse">
+        <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 md:mx-auto md:w-full md:max-w-[860px] md:flex-wrap md:justify-center md:px-0" role="tablist" aria-label="Browse">
           {INDEX_VIEWS.map((v) => (
             <button
               key={v.id}
@@ -2843,13 +2510,9 @@ function SearchPanelBody({
               role="tab"
               aria-selected={by === v.id}
               onClick={() => pick(v.id)}
-              className={cn(
-                "pill relative h-8 border px-3 text-[13px] transition-colors duration-300",
-                by === v.id ? "border-[var(--box-fg)] text-[var(--box-bg-solid)]" : "border-[var(--box-line)] text-[var(--box-muted)] hover:border-[var(--box-muted)] hover:text-[var(--box-fg)]",
-              )}
+              className={cn("chip h-9 px-3.5 text-[13px]", by === v.id && "is-on")}
             >
-              {by === v.id && <motion.span layoutId="browse-by" className="pill absolute inset-0 bg-[var(--box-fg)]" transition={{ duration: 0.35, ease: EASE_OUT }} />}
-              <span className="relative">{v.id === "ring" ? "All surahs" : v.name}</span>
+              {v.id === "ring" ? "All surahs" : v.name}
             </button>
           ))}
         </div>
@@ -2869,26 +2532,28 @@ function SearchPanelBody({
         ) : (
       <motion.div
         key="all"
-        className="thin-scroll relative z-0 mt-5 min-h-0 flex-1 overflow-y-auto px-5 pb-6 md:px-8"
+        className="thin-scroll relative z-0 mt-5 min-h-0 flex-1 overflow-y-auto px-3 pb-4 md:px-6"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -6, transition: { duration: 0.15 } }}
         transition={{ duration: 0.35, ease: EASE_OUT }}
       >
-        <div className="grid grid-cols-2 gap-x-6 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-2 min-[480px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {surahs.map((s) => (
             <button
               key={s.n}
               type="button"
               onClick={() => onSurah(s.n)}
               className={cn(
-                "group flex items-baseline gap-2 border-t border-[var(--box-line)] py-2 text-left transition-colors hover:text-[var(--box-fg)]",
-                s.n === current ? "text-[var(--color-gold)]" : "text-[var(--box-muted)]",
+                "press-soft group flex items-center gap-2.5 rounded-2xl bg-[var(--surface)] px-3 py-2.5 text-left transition-shadow duration-150 hover:shadow-[0_0_0_1px_var(--box-fg)]",
+                s.n === current && "shadow-[0_0_0_2px_var(--box-accent)]",
               )}
             >
-              <span className="font-mono text-[10px] tabular-nums opacity-60">{pad3(s.n)}</span>
-              <span className="truncate font-serif text-[15px] italic">{nameMarks(s.tc)}</span>
-              <span className="ml-auto font-kufi text-[13px] opacity-60" dir="rtl">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-medium tabular-nums text-[#111113]" style={{ background: surahColor(s.n).bg }}>
+                {s.n}
+              </span>
+              <span className="truncate text-[14.5px] font-medium">{nameMarks(s.tc)}</span>
+              <span className="ml-auto font-kufi text-[13px] text-[var(--box-faint)]" dir="rtl">
                 {s.ar}
               </span>
             </button>

@@ -16,12 +16,12 @@ import { voiceKey } from "./VoiceNote";
 
 const S = 1080;
 
-/** the night the site sits in, as the ground the note lies on */
-/** the note's paper: yellow, or Crimson's parchment (index.css .note-paper) */
+/** the note as the site draws it (index.css .note-paper): a cream card, ruled faintly, on a desk of
+ *  the page's paper (or, in the dark, of its night) */
 const paperOf = () =>
-  useStore.getState().settings.theme === "crimson"
-    ? { ground: ["#5a0d13", "#22040a"], paper: ["#d9c9a9", "#cdb895", "#b39c78"], lines: "rgba(92,62,30,0.2)", curl: ["#b9a37f", "#e2d5bb"] }
-    : { ground: ["#15284a", "#070b14"], paper: ["#fff1a1", "#fde47a", "#f7d65e"], lines: "rgba(80,110,170,0.28)", curl: ["#f3e08a", "#fff4b8"] };
+  document.documentElement.dataset.scheme === "dark"
+    ? { ground: ["#24231f", "#121210"], paper: ["#f6f1e4", "#efe8d6", "#e5dcc6"], lines: "rgba(60,80,70,0.16)", curl: ["#ddd3bb", "#f6f1e4"] }
+    : { ground: ["#ebe6db", "#d9d2c3"], paper: ["#fffdf7", "#fbf6ea", "#f1e9d6"], lines: "rgba(60,80,70,0.14)", curl: ["#e9e0cb", "#fffdf7"] };
 
 function ground(g: CanvasRenderingContext2D) {
   const bg = g.createLinearGradient(0, 0, S * 0.5, S);
@@ -374,7 +374,7 @@ export function NoteShareDialog({ note, surahName, onClose, onToast }: { note: N
           <motion.div
             role="dialog"
             aria-label={`Share your note on ${note.key}`}
-            className="theme-dialog relative flex max-h-[92vh] w-full max-w-[760px] flex-col overflow-hidden border-[3px] border-[#06080c] bg-[#0a0f18] text-[#efe9dd] shadow-[0_40px_120px_-30px_rgba(0,0,0,0.8)] md:flex-row"
+            className="theme-dialog relative flex max-h-[92vh] w-full max-w-[760px] flex-col overflow-hidden border-0 bg-[#181816] text-[#efe9dd] shadow-[0_40px_120px_-30px_rgba(0,0,0,0.8)] md:flex-row"
             initial={{ y: 20, opacity: 0, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             transition={{ duration: 0.4, ease: EASE_OUT }}

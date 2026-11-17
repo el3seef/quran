@@ -1,0 +1,440 @@
+/* ══ Bento ════════════════════════════════════════════════════════════════════════════════════════
+   The site's look: rounded cards on a soft grey page (on a phone) or on a light panel set in a dark
+   shell (on a computer), each surah in its own pastel; round icon buttons, pill chips, a black pill
+   for navigation; Lexend throughout (made for reading ease, and with every mark the names need).
+   Motion after Emil Kowalski: a strong ease-out, short, never on what a key asks for; presses give at
+   once. Light by day, dark by night (App: data-scheme). */
+
+/* Lexend's marked letters (ā ī ū ĥ ṭ…) from its latin-ext file, not built from a loose macron */
+@font-face {
+  font-family: "Lexend Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("../node_modules/@fontsource-variable/lexend/files/lexend-latin-ext-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF;
+}
+
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+:root[data-theme="quiet"] {
+  color-scheme: light;
+  --font-sans: "Lexend Variable", "Marks Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Lexend Variable", "Marks Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Lexend Variable", "Marks Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Lexend Variable", "Marks Sans", ui-sans-serif, system-ui, sans-serif;
+  --read-scale: 0.94;
+  --tr-main: 480;
+  /* the page, its cards, its ink */
+  --shell: #111113;
+  --sky: #f0f0f4;
+  --box-bg: #f0f0f4;
+  --box-bg-solid: #f0f0f4;
+  --surface: #ffffff;
+  --box-fg: #111113;
+  --box-muted: #67676f;
+  --box-faint: #9b9ba4;
+  --box-line: rgba(17, 17, 19, 0.08);
+  --box-hover: rgba(17, 17, 19, 0.05);
+  --box-frame: transparent;
+  --box-accent: #6c55f6;
+  --box-context: #8b8b94;
+  --color-gold: #6c55f6;
+  --color-gold-soft: #8d7bff;
+  --panel-bg: #f0f0f4;
+  --tip-bg: #111113;
+  --tip-fg: #ffffff;
+  /* the pastels a card can be (each surah has its own besides: lib/surahColor) */
+  --p-lilac: #cbbfff;
+  --p-butter: #ffd772;
+  --p-sky: #b3d4ff;
+  --p-mint: #c3eaa8;
+  --p-blush: #fbc7ee;
+  --p-peach: #ffc4a3;
+  --p-cream: #f3ead2;
+  /* shapes */
+  --r-card: 28px;
+  --r-inner: 18px;
+  --pop-radius: 22px;
+  --pop-shadow: 0 1px 2px rgba(17, 17, 19, 0.06), 0 18px 48px -16px rgba(17, 17, 19, 0.28);
+  --box-radius: 0px;
+  --box-border: 0px;
+  --box-shadow: none;
+  --strip: #f0f0f4;
+  --edge-shade: transparent;
+  --voice-paper: linear-gradient(160deg, #fffdf7 0%, #fbf6ea 60%, #f1e9d6 100%);
+  /* what sits on the dark shell (the ayah slider on a computer) */
+  --outside-fg: #f4f4f6;
+  --outside-muted: rgba(244, 244, 246, 0.66);
+  --outside-faint: rgba(244, 244, 246, 0.42);
+  --outside-line: rgba(244, 244, 246, 0.16);
+  --outside-tab: rgba(244, 244, 246, 0.3);
+  --outside-bg: #111113;
+}
+:root[data-theme="quiet"][data-scheme="dark"] {
+  color-scheme: dark;
+  --shell: #000000;
+  --sky: #0d0d0f;
+  --box-bg: #0d0d0f;
+  --box-bg-solid: #0d0d0f;
+  --surface: #1a1a1d;
+  --box-fg: #f3f3f5;
+  --box-muted: #a3a3ab;
+  --box-faint: #6f6f78;
+  --box-line: rgba(255, 255, 255, 0.08);
+  --box-hover: rgba(255, 255, 255, 0.06);
+  --box-accent: #a99cff;
+  --box-context: #8a8a92;
+  --color-gold: #a99cff;
+  --color-gold-soft: #c3b9ff;
+  --panel-bg: #0d0d0f;
+  --tip-bg: #f3f3f5;
+  --tip-fg: #0d0d0f;
+  --pop-shadow: 0 0 0 1px rgba(255, 255, 255, 0.07), 0 18px 48px -12px rgba(0, 0, 0, 0.7);
+  --strip: #0d0d0f;
+}
+
+/* the page: on a computer a dark shell round a light panel; on a phone the panel's grey alone */
+:root[data-theme="quiet"] body {
+  background: var(--sky);
+  font-family: var(--font-sans);
+}
+@media (min-width: 768px) {
+  :root[data-theme="quiet"] body,
+  :root[data-theme="quiet"] .bento-backdrop {
+    background: var(--shell);
+  }
+  :root[data-theme="quiet"] .frame-box {
+    border-radius: 30px;
+  }
+  :root[data-theme="quiet"] .frame-radius,
+  :root[data-theme="quiet"] .frame-radius-in {
+    border-radius: 30px;
+  }
+}
+:root[data-theme="quiet"] ::selection {
+  background: color-mix(in srgb, var(--box-accent) 26%, transparent);
+}
+:root[data-theme="quiet"] .grain-local {
+  display: none;
+}
+
+/* type: one family, set by weight and size; nothing slanted (Lexend has no italic: what was set in
+   italics is set apart by its weight and colour instead) */
+:root[data-theme="quiet"] :is(.italic, em, .ctx, i) {
+  font-style: normal;
+}
+:root[data-theme="quiet"] .display {
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+:root[data-theme="quiet"] .label {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+:root[data-theme="quiet"] .label-sm {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+:root[data-theme="quiet"] .ctx {
+  font-weight: 300;
+  font-size: 0.9em;
+}
+
+/* a press gives at once and comes back */
+:root[data-theme="quiet"] :is(.press, .btn-primary, .btn-secondary, button.pill) {
+  transition:
+    scale 160ms var(--ease-out),
+    color 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease,
+    opacity 150ms ease,
+    box-shadow 150ms ease;
+}
+:root[data-theme="quiet"] :is(.press, .btn-primary, .btn-secondary, button.pill):active:not(:disabled) {
+  scale: 0.96;
+}
+:root[data-theme="quiet"] .press-soft:active:not(:disabled) {
+  scale: 0.985;
+}
+
+/* shapes */
+:root[data-theme="quiet"] .pill,
+:root[data-theme="quiet"] .pill .pill {
+  border-radius: 999px;
+}
+:root[data-theme="quiet"] .btn-primary {
+  border: 0;
+  border-radius: 999px;
+  background: var(--box-fg);
+  color: var(--box-bg-solid);
+  font-family: var(--font-sans);
+}
+:root[data-theme="quiet"] .btn-primary:hover {
+  background: color-mix(in srgb, var(--box-fg) 85%, var(--box-bg-solid));
+  color: var(--box-bg-solid);
+}
+:root[data-theme="quiet"] .btn-secondary {
+  border-radius: 999px;
+}
+:root[data-theme="quiet"] .theme-pop {
+  --box-bg-solid: var(--surface);
+  border-radius: var(--pop-radius);
+  border-color: transparent;
+  box-shadow: var(--pop-shadow);
+}
+:root[data-theme="quiet"] .theme-pop[class*="border-t-2"] {
+  border-top-width: 0;
+}
+:root[data-theme="quiet"] .theme-dialog {
+  border-color: transparent;
+  border-radius: 30px;
+  box-shadow: 0 40px 100px -30px rgba(0, 0, 0, 0.5);
+}
+:root[data-theme="quiet"] .search-input {
+  height: 48px;
+  padding: 12px 18px;
+  border: 1px solid var(--box-line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  letter-spacing: 0;
+  text-transform: none;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+:root[data-theme="quiet"] .search-input:focus {
+  border-color: var(--box-fg);
+  box-shadow: none;
+}
+:root[data-theme="quiet"] .kbd {
+  border-radius: 7px;
+}
+
+/* a round icon button: white on the page, black when it is the one that matters */
+.circle-btn {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--box-fg);
+  box-shadow: 0 0 0 1px var(--box-line);
+  transition:
+    scale 160ms var(--ease-out),
+    background-color 150ms ease,
+    color 150ms ease;
+}
+.circle-btn:active:not(:disabled) {
+  scale: 0.94;
+}
+@media (hover: hover) and (pointer: fine) {
+  .circle-btn:hover {
+    background: color-mix(in srgb, var(--surface) 88%, var(--box-fg));
+  }
+}
+.circle-btn.is-dark {
+  background: var(--box-fg);
+  color: var(--box-bg-solid);
+  box-shadow: none;
+}
+.circle-btn.is-sm {
+  width: 36px;
+  height: 36px;
+}
+/* (these rules are unlayered and would outweigh Tailwind's display utilities: the ones used, kept) */
+.circle-btn.hidden {
+  display: none;
+}
+@media (min-width: 768px) {
+  .circle-btn.md\:inline-flex {
+    display: inline-flex;
+  }
+}
+@media (min-width: 1280px) {
+  .circle-btn.xl\:hidden {
+    display: none;
+  }
+}
+.circle-btn.is-md {
+  width: 40px;
+  height: 40px;
+}
+.circle-btn.is-on {
+  background: var(--box-fg);
+  color: var(--box-bg-solid);
+}
+/* a chip: a pill of a choice, outlined; the chosen one filled in ink */
+.chip {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--box-line);
+  background: var(--surface);
+  color: var(--box-muted);
+  font-size: 14px;
+  white-space: nowrap;
+  transition:
+    scale 160ms var(--ease-out),
+    background-color 150ms ease,
+    color 150ms ease,
+    border-color 150ms ease;
+}
+.chip:active {
+  scale: 0.96;
+}
+.chip.is-on {
+  border-color: var(--box-fg);
+  background: var(--box-fg);
+  color: var(--box-bg-solid);
+}
+@media (hover: hover) and (pointer: fine) {
+  .chip:not(.is-on):hover {
+    color: var(--box-fg);
+    border-color: color-mix(in srgb, var(--box-fg) 30%, transparent);
+  }
+}
+/* a card: the unit of the page */
+.card {
+  border-radius: var(--r-card);
+  background: var(--surface);
+}
+.card-tint {
+  border-radius: var(--r-card);
+  color: #111113;
+}
+/* (so a tinted card's own buttons read on it in either appearance) */
+.card-tint .circle-btn {
+  background: rgba(255, 255, 255, 0.55);
+  color: #111113;
+  box-shadow: none;
+}
+.card-tint .circle-btn.is-dark {
+  background: #111113;
+  color: #fff;
+}
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+/* ── the reader ──────────────────────────────────────────────────────────────────────────────── */
+
+/* each ayah a card: one at a time it stands in the page's middle; scrolling, the cards follow one
+   another, a gap between */
+:root[data-theme="quiet"] .snap-scroller.flow section.snap-item[data-key] {
+  margin: 0 12px 10px;
+  border: 0;
+  border-radius: var(--r-card);
+  background: var(--surface);
+}
+:root[data-theme="quiet"] .snap-scroller.flow section.snap-item[data-key][data-first] {
+  margin-top: 4px;
+}
+@media (min-width: 768px) {
+  :root[data-theme="quiet"] .snap-scroller.flow section.snap-item[data-key] {
+    margin: 0 auto 12px;
+  }
+}
+:root[data-theme="quiet"] .snap-scroller.paged section.snap-item[data-key] > [data-inner] {
+  padding: 26px 24px 24px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+}
+@media (min-width: 768px) {
+  :root[data-theme="quiet"] .snap-scroller.paged section.snap-item[data-key] > [data-inner] {
+    padding: 44px 48px 40px;
+  }
+}
+/* the one-ayah view's buttons: a white pill under the ayah */
+.ayah-pill {
+  box-shadow:
+    0 0 0 1px var(--box-line),
+    0 12px 32px -14px rgba(17, 17, 19, 0.28);
+}
+/* the dock under the panel: the slider. On a phone a black pill in the strip below the page; on a
+   computer a softer one on the dark shell */
+.reader-dock {
+  background: #111113;
+  box-shadow: 0 14px 34px -16px rgba(17, 17, 19, 0.55);
+}
+:root[data-scheme="dark"] .reader-dock {
+  background: #1d1d21;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+@media (min-width: 768px) {
+  .reader-dock,
+  :root[data-scheme="dark"] .reader-dock {
+    background: rgba(255, 255, 255, 0.07);
+    box-shadow: none;
+  }
+}
+
+/* the book: page cards */
+:root[data-theme="quiet"] .mushaf-page {
+  margin: 0 0 14px;
+  padding: 18px 20px 16px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+}
+:root[data-theme="quiet"] .mushaf-page + .mushaf-page {
+  border-top: 0;
+}
+:root[data-theme="quiet"] .book:not(.printed-book) > div {
+  padding: 28px 24px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+}
+@media (min-width: 768px) {
+  :root[data-theme="quiet"] .mushaf-page {
+    padding: 26px 36px 22px;
+  }
+  :root[data-theme="quiet"] .book:not(.printed-book) > div {
+    padding: 32px 36px;
+  }
+}
+@media (min-width: 1280px) {
+  :root[data-theme="quiet"] .book:not(.printed-book) > div {
+    padding: 44px 52px;
+  }
+}
+
+/* a note: a cream card, ruled faintly, its corner lifting */
+:root[data-theme="quiet"] .note-paper {
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 28px),
+    repeating-linear-gradient(to bottom, transparent 0 27px, rgba(60, 60, 90, 0.11) 27px 28px),
+    linear-gradient(160deg, #fffdf6 0%, #fbf6e8 55%, #f3ebd7 100%);
+  background-position: 0 0, 0 12px, 0 0;
+}
+:root[data-theme="quiet"] .note-paper::after {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.1) 50%, #e9e0cb 56%, #fffdf6 100%);
+}
+
+/* the video's controls */
+:root[data-theme="quiet"] :is(.studio-select, .studio-num) {
+  border-radius: 14px;
+  background-color: var(--surface);
+}

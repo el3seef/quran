@@ -124,50 +124,18 @@ export function useViewport() {
 }
 
 /**
- * Page one's foot, from the bottom of the screen (above a phone's home indicator): the themes' row
- * (CoverThemes: themes), the strip of the search and Continue just above it (CoverStrip: its foot
- * strip, its height h), and all the room they take, with a gap above (top).
+ * Where the page is laid out. On a computer: a light panel set in the dark shell, the rail of the
+ * site's ways down its left (AppNav); the reader's panel stops short of the foot, where the ayah slider
+ * lies on the shell. On a phone: the screen itself (below a home-screen app's status bar, above its
+ * home indicator); the reader keeps a strip along the foot for its dock, and the other pages scroll
+ * under the floating navigation.
  */
-export function coverFoot(mobile: boolean) {
-  const themes = mobile ? 18 : 26;
-  const strip = themes + (mobile ? 54 : 60) + (mobile ? 10 : 12);
-  const h = mobile ? 44 : 46;
-  return { themes, strip, h, top: strip + h + (mobile ? 12 : 16) };
-}
-
-/**
- * The frame keeps the browser window's aspect ratio at a medium size.
- * The index (page two) and the reading page share one size, so the frame changes shape once, from
- * the cover to the index, and holds it into the surah; it rises a little to leave room for the ayah
- * slider below and the passage's theme above. On page one it is small, the cover of the book. Opened from a phone's home screen, there is no
- * browser around it: the frame takes the whole screen but for the passage's theme under the status
- * bar and the slider above the home indicator.
- */
+export const RAIL = 84;
 export function frameRect(w: number, h: number, phase: "intro" | "select" | "read" | "seerah" | "video", app?: { standalone: boolean; insets: Insets }): Rect {
-  const mobile = w < 768;
   const ins = app?.insets ?? { top: 0, right: 0, bottom: 0, left: 0 };
-  // the Seerah, and the making of a video: the frame all but the whole screen, a stage of its own
-  if (phase === "seerah" || phase === "video") {
-    if (mobile) return { left: 8, top: ins.top + 8, width: w - 16, height: h - ins.top - ins.bottom - 16 };
-    const m = Math.round(Math.min(36, Math.max(14, w * 0.02)));
-    return { left: m, top: m, width: w - 2 * m, height: h - 2 * m };
-  }
-  if (phase === "intro") {
-    // (in the middle of what the strip and the themes along the foot leave above them)
-    const pad = mobile ? 16 : 32;
-    const room = h - coverFoot(mobile).top - ins.bottom - ins.top - pad;
-    const width = mobile ? w - 20 : Math.round(Math.min(640, Math.max(460, w * 0.44)));
-    const height = Math.round(Math.min(room, Math.max(mobile ? 380 : 400, h * (mobile ? 0.56 : 0.54))));
-    return { left: Math.round((w - width) / 2), top: Math.round(ins.top + pad + (room - height) / 2), width, height };
-  }
-  // the index and the reader: one size
-  if (mobile && app?.standalone) {
-    const top = ins.top + 46; // the theme, just under the status bar
-    return { left: 10, top, width: w - 20, height: h - top - (ins.bottom + 74) }; // the slider below
-  }
-  if (mobile) return { left: 10, top: h * 0.085, width: w - 20, height: h * 0.74 };
-  const width = Math.round(w * 0.76);
-  const height = Math.round(h * 0.72);
-  const top = Math.round((h - height) / 2 - h * 0.025);
-  return { left: Math.round((w - width) / 2), top, width, height };
+  if (phase === "seerah") return { left: 0, top: 0, width: w, height: h };
+  if (w >= 768) return { left: RAIL, top: 12, width: w - RAIL - 12, height: h - 24 - (phase === "read" ? 60 : 0) };
+  const top = ins.top;
+  const height = h - top - ins.bottom;
+  return { left: 0, top, width: w, height: height - (phase === "read" ? 84 : 0) };
 }

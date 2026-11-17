@@ -119,7 +119,7 @@ export function PlayerBar({ mobile, onGo }: { mobile: boolean; onGo: (s: number,
 
 /** How far through the surah the recitation is: a thin line along the foot's top edge, kept by the
  *  sound itself while it plays (placed in the foot, across its whole width). */
-export function PlayerLine() {
+export function PlayerLine({ className }: { className?: string }) {
   const on = usePlayer((p) => p.on);
   const playing = usePlayer((p) => p.playing);
   const line = useRef<HTMLSpanElement>(null);
@@ -134,7 +134,7 @@ export function PlayerLine() {
     return () => cancelAnimationFrame(raf);
   }, [on, playing]);
   if (!on) return null;
-  return <span ref={line} className="pointer-events-none absolute inset-x-0 top-0 h-px origin-left bg-[var(--box-accent)]" style={{ transform: "scaleX(0)" }} />;
+  return <span ref={line} className={cn("pointer-events-none absolute h-px origin-left rounded-full bg-[var(--box-accent)]", className ?? "inset-x-0 top-0")} style={{ transform: "scaleX(0)" }} />;
 }
 
 function Btn({ children, label, onClick, strong }: { children: React.ReactNode; label: string; onClick: () => void; strong?: boolean }) {

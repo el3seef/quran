@@ -48,7 +48,7 @@ function Opener({ part, pi, mobile, mx, my, enter }: Common & { part: Part; pi: 
       {/* the part's number, enormous and faint, moving deepest */}
       <motion.div
         className="s-word is-outline"
-        style={{ x: back, y: backY, right: "-2vw", bottom: mobile ? "16vh" : "-4vh", fontSize: mobile ? "58vw" : "62vh", opacity: 0.5 }}
+        style={{ x: back, y: backY, right: "-2vw", bottom: mobile ? "16vh" : "-4vh", fontSize: mobile ? "58vw" : "62vmin", opacity: 0.5 }}
         initial={{ x: enter.x * 300, opacity: 0 }}
         animate={{ x: 0, opacity: 0.5 }}
         transition={{ duration: 1.6, ease: EASE }}
@@ -60,11 +60,12 @@ function Opener({ part, pi, mobile, mx, my, enter }: Common & { part: Part; pi: 
           Part {ROMAN[pi] ?? pi + 1} — {part.span}
         </motion.div>
         {part.ar && (
-          <motion.div variants={rise} className="s-ar mt-3" dir="rtl" lang="ar" style={{ fontSize: mobile ? "15vw" : "15vh", alignSelf: mobile ? "flex-end" : "flex-start" }}>
+          <motion.div variants={rise} className="s-ar mt-3" dir="rtl" lang="ar" style={{ fontSize: mobile ? "min(15vw, 7vh)" : "15vmin", alignSelf: mobile ? "flex-end" : "flex-start" }}>
             {part.ar}
           </motion.div>
         )}
-        <motion.h2 variants={rise} className="s-great mt-2" style={{ fontSize: mobile ? `${Math.min(19, 120 / Math.max(6, big.length))}vw` : `${Math.min(17, 96 / Math.max(6, big.length))}vh`, maxWidth: "92vw" }}>
+        <motion.h2 variants={rise} className="s-great mt-2" // (by the smaller of the screen's sides: a tall tablet or a short phone keeps it all in view)
+          style={{ fontSize: mobile ? `min(${Math.min(19, 120 / Math.max(6, big.length))}vw, ${Math.min(19, 120 / Math.max(6, big.length)) * 0.47}vh)` : `${Math.min(17, 96 / Math.max(6, big.length))}vmin`, maxWidth: "92vw" }}>
           {part.title}
         </motion.h2>
         {part.blurb && (

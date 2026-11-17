@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Copy, Download, ImageIcon, Link2, X as Close } from "lucide-react";
 import { EASE_OUT, cn, copyText } from "@/lib/utils";
 import { ayn, drawingHats, nameMarks } from "@/lib/names";
-import type { ThemeId } from "@/lib/themes";
 import { FONTS, drawGround, groundThumb, groundsOf, type FontId, type Ground, type Spot } from "./grounds";
 
 export type ShareFormat = "square" | "landscape" | "story";
@@ -18,7 +17,7 @@ export type ShareContent = {
   url: string;
   surah?: number;
   script?: "uthmani" | "indopak";
-  theme?: ThemeId; // its grounds are this theme's
+  theme?: string; // (the look it was shared from)
   /** a part of the ayah (a highlight): `arabic` and `translation` are then the part and the other side whole */
   part?: SharePart;
 };
@@ -244,8 +243,8 @@ function tidy(s: string) {
   return t.replace(/[,;:]$/, "");
 }
 
-// the last choices made for each theme's pictures, kept while the page is open
-const lastStyle: Partial<Record<ThemeId, { ground: string; font: FontId; spot: Spot["id"]; grain: boolean }>> = {};
+// the last choices made, kept while the page is open
+let lastStyle: { ground: string; font: FontId; spot: Spot["id"]; grain: boolean } | null = null;
 
 export function ShareDialog({ content: given, onClose, onToast }: { content: ShareContent | null; onClose: () => void; onToast: (m: string) => void }) {
   const [format, setFormat] = useState<ShareFormat>("square");
@@ -253,9 +252,8 @@ export function ShareDialog({ content: given, onClose, onToast }: { content: Sha
   const [busy, setBusy] = useState(false);
   const blobs = useRef(new Map<string, Blob>());
 
-  // what it is laid on, its lettering, where the words sit, its grain: the theme's own to choose from
-  const theme: ThemeId = given?.theme ?? "crimson";
-  const grounds = useMemo(() => groundsOf(theme), [theme]);
+  // what it is laid on, its lettering, where the words sit, its grain
+  const grounds = useMemo(() => groundsOf(), []);
   const [groundId, setGroundId] = useState(grounds[0].id);
   const ground = grounds.find((g) => g.id === groundId) ?? grounds[0];
   const [font, setFont] = useState<FontId>(ground.font);
@@ -263,21 +261,21 @@ export function ShareDialog({ content: given, onClose, onToast }: { content: Sha
   const [grainOn, setGrainOn] = useState(true);
   useEffect(() => {
     if (!given) return;
-    const l = lastStyle[theme];
+    const l = lastStyle;
     const gr = grounds.find((g) => g.id === l?.ground) ?? grounds[0];
     setGroundId(gr.id);
     setFont(l?.font ?? gr.font);
     setSpot(l && gr.spots.some((s) => s.id === l.spot) ? l.spot : gr.spots[0].id);
     setGrainOn(l?.grain ?? true);
-  }, [given, theme, grounds]);
+  }, [given, grounds]);
   const pickGround = (gr: Ground) => {
     setGroundId(gr.id);
     setFont(gr.font);
     if (!gr.spots.some((s) => s.id === spot)) setSpot(gr.spots[0].id);
   };
   useEffect(() => {
-    lastStyle[theme] = { ground: groundId, font, spot, grain: grainOn };
-  }, [theme, groundId, font, spot, grainOn]);
+    lastStyle = { ground: groundId, font, spot, grain: grainOn };
+  }, [groundId, font, spot, grainOn]);
   const style: ShareStyle = { ground, font, spot: ground.spots.some((s) => s.id === spot) ? spot : ground.spots[0].id, grain: grainOn };
   const styleKey = `${style.ground.id}|${style.font}|${style.spot}|${style.grain}`;
 
@@ -383,8 +381,8 @@ export function ShareDialog({ content: given, onClose, onToast }: { content: Sha
     }
   };
 
-  const seg = "flex border border-white/15 p-0.5";
-  const segBtn = (on: boolean) => cn("label relative flex-1 py-2 transition-colors", on ? "text-[#0a0f18]" : "text-white/60 hover:text-white");
+  const seg = "flex rounded-full bg-white/[0.07] p-1";
+  const segBtn = (on: boolean) => cn("label relative flex-1 rounded-full py-2 transition-colors", on ? "text-[#0a0f18]" : "text-white/60 hover:text-white");
   return createPortal(
     <AnimatePresence>
       <motion.div
@@ -398,7 +396,7 @@ export function ShareDialog({ content: given, onClose, onToast }: { content: Sha
         <motion.div
           role="dialog"
           aria-label={`Share ${content.ref}`}
-          className="theme-dialog relative flex max-h-[92vh] w-full max-w-[920px] flex-col overflow-hidden border-[3px] border-[#06080c] bg-[#0a0f18] text-[#efe9dd] shadow-[0_40px_120px_-30px_rgba(0,0,0,0.8)] md:max-h-[88vh] md:flex-row"
+          className="theme-dialog relative flex max-h-[92vh] w-full max-w-[920px] flex-col overflow-hidden border-0 bg-[#181816] text-[#efe9dd] shadow-[0_40px_120px_-30px_rgba(0,0,0,0.8)] md:max-h-[88vh] md:flex-row"
           initial={{ y: 20, opacity: 0, scale: 0.98 }}
           animate={{ y: 0, opacity: 1, scale: 1 }}
           transition={{ duration: 0.4, ease: EASE_OUT }}
@@ -446,7 +444,7 @@ export function ShareDialog({ content: given, onClose, onToast }: { content: Sha
                     aria-checked={gr.id === ground.id}
                     title={gr.art ? `${gr.name}: ${gr.art.by}` : gr.name}
                     onClick={() => pickGround(gr)}
-                    className={cn("group relative h-14 w-14 shrink-0 overflow-hidden transition-all", gr.id === ground.id ? "ring-1 ring-white ring-offset-2 ring-offset-[#0a0f18]" : "opacity-70 hover:opacity-100")}
+                    className={cn("group relative h-14 w-14 shrink-0 overflow-hidden rounded-xl transition-all", gr.id === ground.id ? "ring-1 ring-white ring-offset-2 ring-offset-[#0a0f18]" : "opacity-70 hover:opacity-100")}
                   >
                     <img src={groundThumb(gr)} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110" />
                   </button>
@@ -466,9 +464,9 @@ export function ShareDialog({ content: given, onClose, onToast }: { content: Sha
                       type="button"
                       onClick={() => setFont(f.id)}
                       aria-pressed={font === f.id}
-                      className={cn("relative min-w-0 flex-1 px-1 py-1.5 transition-colors", font === f.id ? "text-[#0a0f18]" : "text-white/65 hover:text-white")}
+                      className={cn("relative min-w-0 flex-1 rounded-full px-1 py-1.5 transition-colors", font === f.id ? "text-[#0a0f18]" : "text-white/65 hover:text-white")}
                     >
-                      {font === f.id && <motion.span layoutId="share-font" className="absolute inset-0 bg-[#efe9dd]" transition={{ duration: 0.3, ease: EASE_OUT }} />}
+                      {font === f.id && <motion.span layoutId="share-font" className="absolute inset-0 rounded-full bg-[#efe9dd]" transition={{ duration: 0.22, ease: EASE_OUT }} />}
                       <span className="relative block truncate" style={{ font: f.tr(15.5), lineHeight: 1.3 }}>
                         {f.name}
                       </span>
@@ -484,7 +482,7 @@ export function ShareDialog({ content: given, onClose, onToast }: { content: Sha
                       .filter((id) => ground.spots.some((s) => s.id === id))
                       .map((id) => (
                         <button key={id} type="button" onClick={() => setSpot(id)} aria-pressed={style.spot === id} className={segBtn(style.spot === id)}>
-                          {style.spot === id && <motion.span layoutId="share-spot" className="absolute inset-0 bg-[#efe9dd]" transition={{ duration: 0.3, ease: EASE_OUT }} />}
+                          {style.spot === id && <motion.span layoutId="share-spot" className="absolute inset-0 rounded-full bg-[#efe9dd]" transition={{ duration: 0.22, ease: EASE_OUT }} />}
                           <span className="relative">{id === "top" ? "Top" : id === "middle" ? "Middle" : "Bottom"}</span>
                         </button>
                       ))}
@@ -495,7 +493,7 @@ export function ShareDialog({ content: given, onClose, onToast }: { content: Sha
                   role="switch"
                   aria-checked={grainOn}
                   onClick={() => setGrainOn(!grainOn)}
-                  className="label flex h-[38px] shrink-0 items-center gap-2 border border-white/15 px-3 text-white/60 transition-colors hover:text-white"
+                  className="label flex h-[38px] shrink-0 items-center gap-2 rounded-full bg-white/[0.07] px-3.5 text-white/60 transition-colors hover:text-white"
                 >
                   Grain
                   <span className={cn("pill relative inline-block h-[11px] w-[20px] border border-current transition-colors duration-300", grainOn && "border-[#efe9dd]")}>
@@ -511,7 +509,7 @@ export function ShareDialog({ content: given, onClose, onToast }: { content: Sha
                 <div className={seg}>
                   {(["part", "whole", "none"] as WithIt[]).map((w) => (
                     <button key={w} type="button" onClick={() => setWithIt(w)} aria-pressed={withIt === w} className={segBtn(withIt === w)}>
-                      {withIt === w && <motion.span layoutId="share-with" className="absolute inset-0 bg-[#efe9dd]" transition={{ duration: 0.3, ease: EASE_OUT }} />}
+                      {withIt === w && <motion.span layoutId="share-with" className="absolute inset-0 rounded-full bg-[#efe9dd]" transition={{ duration: 0.22, ease: EASE_OUT }} />}
                       <span className="relative">{w === "part" ? "Its words" : w === "whole" ? "Whole ayah" : "None"}</span>
                     </button>
                   ))}
@@ -521,7 +519,7 @@ export function ShareDialog({ content: given, onClose, onToast }: { content: Sha
                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3, ease: EASE_OUT }} className="overflow-hidden">
                       <div
                         dir={part.side === "ar" ? "ltr" : "rtl"}
-                        className={cn("thin-scroll mt-2 max-h-[150px] overflow-y-auto border border-white/10 px-2.5 py-2", part.side === "ar" ? "font-serif text-[14.5px] leading-[1.75]" : "quran text-right text-[20px] leading-[2]")}
+                        className={cn("thin-scroll mt-2 max-h-[150px] overflow-y-auto rounded-2xl bg-white/[0.05] px-3 py-2", part.side === "ar" ? "font-serif text-[14.5px] leading-[1.75]" : "quran text-right text-[20px] leading-[2]")}
                       >
                         {part.other.map((w, i) => {
                           const inIt = i >= marked[0] && i <= marked[1];
@@ -554,7 +552,7 @@ export function ShareDialog({ content: given, onClose, onToast }: { content: Sha
               <div className={seg}>
                 {(["square", "landscape", "story"] as ShareFormat[]).map((f) => (
                   <button key={f} type="button" onClick={() => setFormat(f)} aria-pressed={format === f} className={segBtn(format === f)}>
-                    {format === f && <motion.span layoutId="share-shape" className="absolute inset-0 bg-[#efe9dd]" transition={{ duration: 0.3, ease: EASE_OUT }} />}
+                    {format === f && <motion.span layoutId="share-shape" className="absolute inset-0 rounded-full bg-[#efe9dd]" transition={{ duration: 0.22, ease: EASE_OUT }} />}
                     <span className="relative">{f === "square" ? "Square" : f === "landscape" ? "Landscape" : "Story"}</span>
                   </button>
                 ))}
@@ -616,7 +614,7 @@ function DestBtn({ onClick, label, sub, glyph, busy }: { onClick: () => void; la
       type="button"
       disabled={busy}
       onClick={onClick}
-      className="group flex flex-col items-start gap-3 border border-white/15 p-3 text-left transition-colors hover:border-white/50 hover:bg-white/5 disabled:opacity-50"
+      className="press group flex flex-col items-start gap-3 rounded-2xl bg-white/[0.07] p-3 text-left transition-colors hover:bg-white/[0.12] disabled:opacity-50"
     >
       <span className="text-white/80 transition-transform duration-300 group-hover:-translate-y-0.5">{glyph}</span>
       <span>

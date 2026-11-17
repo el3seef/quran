@@ -1,10 +1,11 @@
 import { fromArabicDigits, loadSearchIndex, type Surah } from "./data";
+import MARKS from "./marks.json";
 
 export type Result =
   | { kind: "surah"; surah: Surah; score: number; why?: string }
-  | { kind: "ayah"; surah: Surah; ayah: number; score: number }
+  | { kind: "ayah"; surah: Surah; ayah: number; score: number; why?: string }
   | { kind: "juz"; juz: number; surah: Surah; ayah: number; score: number }
-  | { kind: "text"; surah: Surah; ayah: number; snippet: string; match: [number, number][]; score: number };
+  | { kind: "text"; surah: Surah; ayah: number; snippet: string; match: [number, number][]; score: number; why?: string };
 
 /** Other names and common spellings people type. */
 export const ALIASES: Record<number, string[]> = {
@@ -271,7 +272,11 @@ export function findSurahs(surahs: Surah[], q: string, limit = 6) {
    range (2:255-257) opens at its first ayah. The words around a reference that only say what it is
    (surah, ayah, verse, of…) are passed over. */
 const FILLER = new Set(["surah", "sura", "surat", "soorah", "surahs", "chapter", "chap", "ch", "c", "s", "ayah", "ayat", "aya", "ayaat", "ayahs", "ayas", "ayyah", "verse", "verses", "vers", "v", "vs", "vv", "a", "no", "nr", "number", "num", "of", "in", "from", "to", "and", "q", "quran", "qur'an", "quraan", "koran", "kuran", "سورة", "سوره", "آية", "اية", "الآية", "الاية", "آيه", "ايه", "الايه", "رقم", "من"]);
-const JUZ = /^(juz|juzz|juza|juz'|jz|para|parah|part|sipara|siparah|j|hizb|جزء|الجزء)$/;
+const JUZ = /^(juz|juzz|juza|juz'|jz|para|parah|part|sipara|siparah|j|جزء|الجزء)$/;
+/** What people say before what they want ("open", "take me to", "show me"). */
+const ASK = /^(?:please\s+|pls\s+)?(?:open(?:\s+up)?|read|show(?:\s+me)?|go(?:\s+to)?|goto|take\s+me\s+to|jump\s+to|bring\s+up|find(?:\s+me)?|search(?:\s+for)?|look\s+up|play|recite|listen\s+to|i\s+want(?:\s+to\s+read)?)\s+/;
+/** A quarter of a hizb said as a part of one: "¼ hizb 3", "half hizb 3", "3/4 of hizb 3". */
+const QUARTER: Record<string, number> = { "¼": 1, "1/4": 1, quarter: 1, "½": 2, "1/2": 2, half: 2, "¾": 3, "3/4": 3, "three quarters": 3, "three quarter": 3 };
 
 /** ayat known by name, said many ways */
 const NAMED: { s: number; a: number; names: string[] }[] = [
@@ -296,12 +301,14 @@ function namedAyah(q: string) {
 
 /** Instant results: references, surah names, juz, ayat known by name. */
 export function searchDirect(surahs: Surah[], juz: Record<string, string>, raw: string): Result[] {
-  const q = fromArabicDigits(raw)
+  let q = fromArabicDigits(raw)
     .toLowerCase()
-    .replace(/[[\](){}"“”«»<>]/g, " ")
+    .replace(/[[\](){}"“”«»<>?!]/g, " ")
     .replace(/[‐‑‒–—―]/g, "-")
     .trim()
     .replace(/\s+/g, " ");
+  // ("open baqara 255 please": what is wanted, without the asking)
+  for (let was = ""; was !== q; ) (was = q), (q = q.replace(ASK, "").replace(/\s+(?:please|pls)$/, "").trim());
   if (!q) return [];
   const byN = (n: number) => surahs[n - 1];
   const out: Result[] = [];
@@ -322,6 +329,41 @@ export function searchDirect(surahs: Surah[], juz: Record<string, string>, raw: 
   // an ayah known by its name
   const known = namedAyah(q);
   if (known) ayah(known.s, known.a, 100);
+  // an ayah found by where it is, said in words (why: what is said of it in the results)
+  const placed = (s: number, a: number, score: number, why: string) => {
+    ayah(s, a, score);
+    const r = out.find((x) => x.kind === "ayah" && x.surah.n === s && x.ayah === a);
+    if (r && r.kind === "ayah") r.why = why;
+  };
+
+  // a page of the mushaf: page 50, p. 50, صفحة ٥٠
+  const pg = q.match(/^(?:page|pg|p|pp|صفحة|الصفحة|صفحه)\s*\.?\s*(\d{1,3})$/);
+  if (pg) {
+    const at = MARKS.page[Number(pg[1]) - 1];
+    if (at) placed(Number(at.split(":")[0]), Number(at.split(":")[1]), 100, `page ${pg[1]} of the mushaf begins here`);
+    return out;
+  }
+  // a hizb, or a quarter of one: hizb 10, ¼ hizb 3, half hizb 3, rub 9 (of 240)
+  const hz = q.match(/^(?:(¼|1\/4|quarter|½|1\/2|half|¾|3\/4|three quarters?)\s+(?:of\s+)?(?:the\s+)?)?(?:hizb|hezb|hizab|حزب|الحزب)\s*(\d{1,2})$/);
+  const rb = q.match(/^(?:rub|rubu|rub el hizb|rub al hizb|quarter|ربع)\s*(\d{1,3})$/);
+  if (hz || rb) {
+    const r = hz ? (Number(hz[2]) - 1) * 4 + (hz[1] ? QUARTER[hz[1]] : 0) + 1 : Number(rb![1]);
+    const at = r >= 1 && r <= 240 ? MARKS.rub[r - 1] : null;
+    if (at) placed(Number(at.split(":")[0]), Number(at.split(":")[1]), 100, `${["", "¼ ", "½ ", "¾ "][(r - 1) % 4]}hizb ${Math.ceil(r / 4)} begins here`);
+    return out;
+  }
+  // an ayah by its place in a surah: the first, last or middle ayah of yasin; the end of al-kahf
+  const place =
+    q.match(/^(?:the\s+)?(first|1st|opening|last|final|closing|middle|start|beginning|end)\s+(?:ayah\s+|ayat\s+|aya\s+|verse\s+)?(?:of|in)\s+(.+)$/) ??
+    q.match(/^(?:the\s+)?(first|last|final|middle)\s+(?:ayah|ayat|aya|verse)\s+(.+)$/);
+  if (place) {
+    const which = /last|final|closing|end/.test(place[1]) ? "last" : place[1] === "middle" ? "middle" : "first";
+    for (const h of findSurahs(surahs, place[2], 2)) {
+      const n = h.surah.count;
+      placed(h.surah.n, which === "last" ? n : which === "middle" ? Math.ceil(n / 2) : 1, h.score, `the ${which} ayah, of ${n}`);
+    }
+    if (out.length) return out;
+  }
 
   const nums = [...q.matchAll(/\d{1,3}/g)].map((m) => Number(m[0]));
   const words = q
@@ -404,16 +446,63 @@ async function translitRows() {
   return tlRows;
 }
 
+/** What a question asks the text for: "verses about patience", "what does the Quran say about
+ *  orphans?", "ayat on mercy" → the words themselves. */
+export function textQuery(raw: string) {
+  return raw
+    .trim()
+    .replace(/[?!]+$/, "")
+    .replace(/^(?:what\s+does\s+(?:the\s+)?(?:quran|qur'an|koran)\s+say\s+(?:about|on|regarding)|(?:the\s+)?(?:verses?|ayahs?|ayat|ayaat|quran|qur'an)\s+(?:about|on|regarding|concerning|mentioning|that\s+mention|talking\s+about|for)|(?:search\s+for|find|about|regarding)\s+)\s*/i, "")
+    .trim();
+}
+
+/** The words of the translations, and how often each comes: for a word mistyped, the one meant. */
+let vocab: Map<string, number> | null = null;
+function vocabulary() {
+  if (!vocab) {
+    vocab = new Map();
+    for (const r of rows ?? []) for (const w of r.en.match(/[a-z]{3,}/g) ?? []) vocab.set(w, (vocab.get(w) ?? 0) + 1);
+  }
+  return vocab;
+}
+/** A word that is nowhere in the text: the nearest that is (one letter off for a short word, two for
+ *  a longer, the commonest of the nearest); the word itself if it is there, or none is near. */
+function corrected(w: string) {
+  const v = vocabulary();
+  if (w.length < 4 || v.has(w)) return w;
+  const tol = w.length <= 6 ? 1 : 2;
+  let best = w, bd = tol + 1, bn = 0;
+  for (const [x, n] of v) {
+    if (Math.abs(x.length - w.length) > tol || x[0] !== w[0]) continue;
+    const d = dl(w, x);
+    if (d < bd || (d === bd && n > bn)) (best = x), (bd = d), (bn = n);
+  }
+  return bd <= tol ? best : w;
+}
+
 /** Full-text search across Saheeh International, The Clear Quran and the Arabic (and, for words
- *  that sound like the Arabic written in Latin letters, the transliteration). */
+ *  that sound like the Arabic written in Latin letters, the transliteration). A question is read for
+ *  what it asks about; words found nowhere are taken for the nearest that are ("patiance"). */
 export async function searchText(surahs: Surah[], raw: string, limit = 40): Promise<Result[]> {
-  const q = raw.trim();
+  const q = textQuery(raw);
   if (q.length < 3 || /^\d/.test(q)) return [];
   if (!rows) {
     const data = await loadSearchIndex();
     rows = data.map((r) => ({ key: r[0], en: (r[1] + " ‖ " + r[2]).toLowerCase(), ar: normArabic(r[3]), raw: r }));
   }
   const arabic = /[؀-ۿ]/.test(q);
+  const first = await matchText(surahs, q, arabic);
+  if (first.length || arabic) return first.slice(0, limit);
+  // nothing: the words as they were likely meant
+  const fixed = q.toLowerCase().split(/\s+/).map(corrected).join(" ");
+  if (fixed === q.toLowerCase()) return first;
+  return (await matchText(surahs, fixed, false))
+    .map((r) => (r.kind === "text" ? { ...r, why: `for “${fixed}”` } : r))
+    .slice(0, limit);
+}
+
+async function matchText(surahs: Surah[], q: string, arabic: boolean): Promise<Result[]> {
+  if (!rows) return [];
   const needle = arabic ? normArabic(q) : q.toLowerCase();
   const words = needle.split(/\s+/).filter((w) => w.length >= 2);
   if (!words.length) return [];
@@ -458,5 +547,5 @@ export async function searchText(surahs: Surah[], raw: string, limit = 40): Prom
       results.push({ kind: "text", surah: surahs[s - 1], ayah: a, snippet, match: [], score: 2 + qs.length / 3 - row.sk.indexOf(qs) / 400 });
     }
   }
-  return results.sort((a, b) => b.score - a.score).slice(0, limit);
+  return results.sort((a, b) => b.score - a.score);
 }

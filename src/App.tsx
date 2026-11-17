@@ -1,11 +1,10 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Backdrop, type Phase } from "@/components/Backdrop";
+import { AppNav, type NavTab } from "@/components/AppNav";
 import { Frame } from "@/components/Frame";
 import { Grain } from "@/components/bits";
 import { ContextMenu } from "@/components/ContextMenu";
-import { CoverThemes } from "@/components/CoverThemes";
-import { CoverStrip } from "@/components/CoverStrip";
 import { Intro } from "@/pages/Intro";
 import { Select, type OpenRequest } from "@/pages/Select";
 import { Read } from "@/read/Read";
@@ -15,10 +14,11 @@ import { loadIndex, type Surah } from "@/lib/data";
 import type { Result } from "@/lib/search";
 import { frameRect, useViewport, useVisibleBottom } from "@/lib/layout";
 import { useStore } from "@/lib/store";
+import { useScheme } from "@/lib/themes";
 import { useUI, type MenuItem } from "@/lib/ui";
 import { isLongPressMenu, watchLongPress, watchTwoFingerTap } from "@/lib/touch";
 import { watchSounds } from "@/lib/uiSounds";
-import { isTouch, watchIdle } from "@/lib/motion";
+import { isTouch } from "@/lib/motion";
 
 // the Seerah, and the making of an ayah video, loaded when first opened
 const Seerah = lazy(() => import("@/seerah/Seerah"));
@@ -46,7 +46,8 @@ export default function App() {
   const [start, setStart] = useState<Start>(linked ?? { surah: 1, ayah: 1 });
   const [indexAt, setIndexAt] = useState({ surah: last?.s ?? 1, ayah: last?.v ?? 1 }); // where the index opens
   const [firstFrame, setFirstFrame] = useState(true);
-  const [coverSettings, setCoverSettings] = useState(false); // Settings opened from page one
+  const [coverSettings, setCoverSettings] = useState(false); // Settings opened from Home or the surahs
+  const [settingsTab, setSettingsTab] = useState<"saved" | "progress" | undefined>(undefined); // (a section of it asked for)
   // the index, come to from the cover: it offers to go on where the reader left off
   const [resume, setResume] = useState<{ s: number; v: number } | null>(null);
   const about = useUI((s) => s.about);
@@ -132,18 +133,19 @@ export default function App() {
 
   // the site's sounds: taps, switches, keys (each kind can be turned off in Settings → Sound)
   useEffect(() => watchSounds(), []);
-  // a phone at rest: the skies hold still (lib/motion)
-  useEffect(() => watchIdle(), []);
 
+  // light or dark: the device's own, or the one held in Settings
+  const scheme = useScheme(settings.appearance);
   useEffect(() => {
     const root = document.documentElement;
-    // (the Seerah in its own look, whatever the reader's theme)
+    // (the Seerah in its own look, whatever the reader's)
     root.dataset.theme = phase === "seerah" ? "seerah" : settings.theme;
+    root.dataset.scheme = scheme;
     root.dataset.motion = settings.reduceMotion ? "reduce" : "full";
     // the phone's own bar (a home-screen app, Android's browser) takes the colour of the sky
     const sky = getComputedStyle(root).getPropertyValue("--sky").trim();
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", sky || "#4a0a0f");
-  }, [settings.theme, settings.reduceMotion, phase]);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", sky || "#f7f4ee");
+  }, [settings.theme, scheme, settings.reduceMotion, phase]);
 
   // after the first frame is on screen, later frame moves animate
   useEffect(() => {
@@ -163,7 +165,7 @@ export default function App() {
         setPhase("select");
         setEntering(false);
       },
-      useStore.getState().settings.reduceMotion ? 0 : 920,
+      useStore.getState().settings.reduceMotion ? 0 : 160,
     );
   }, []);
   // what the cover's search found: straight into the reader there
@@ -210,15 +212,45 @@ export default function App() {
         { left: 0, top: vp.standalone ? vp.insets.top : 0, width: vp.w, height: vp.h - (vp.standalone ? vp.insets.top : 0) }
       : searchingCover && vp.mobile
         ? (() => {
-            const top = (vp.standalone ? vp.insets.top : 0) + 10;
-            return { left: 10, top, width: vp.w - 20, height: Math.max(260, Math.min(keyboardTop, vp.h - vp.insets.bottom) - top - 10) };
+            const top = vp.standalone ? vp.insets.top : 0;
+            return { left: 0, top, width: vp.w, height: Math.max(260, Math.min(keyboardTop, vp.h - vp.insets.bottom) - top - 10) };
           })()
         : frameRect(vp.w, vp.h, cover ? "intro" : phase === "intro" ? "select" : phase, vp);
+
+  // the site's ways about (AppNav): the page on, and where each goes from wherever the reader is
+  const navActive: NavTab | null = coverSettings ? "settings" : phase === "intro" ? "home" : phase === "video" ? "video" : phase === "seerah" ? null : "surahs";
+  const onNav = (t: NavTab) => {
+    setCoverSearch(false);
+    if (t === "settings") {
+      // (in the reader, its own Settings, over the page being read)
+      if (phase === "read") return void window.dispatchEvent(new CustomEvent("reader-panel", { detail: "settings" }));
+      setSettingsTab(undefined);
+      return setCoverSettings((o) => !o);
+    }
+    setCoverSettings(false);
+    useUI.getState().setAbout(false);
+    if (t === "home") {
+      history.replaceState(null, "", location.pathname);
+      return setPhase("intro");
+    }
+    if (t === "surahs") {
+      if (phase === "select") return;
+      const l = useStore.getState().last;
+      if (phase === "read" && l) return onIndex(l.s, l.v);
+      return enter();
+    }
+    if (t === "seerah") return setPhase("seerah");
+    history.replaceState(null, "", "#/video");
+    setPhase("video");
+  };
+  // (on a phone the navigation floats over Home and the surahs; the reader has its own dock, the video
+  // its own controls; on a computer the rail is there throughout, but in focus)
+  const navShown = phase !== "seerah" && !(focus && phase === "read") && (!vp.mobile || ((phase === "intro" || phase === "select") && !coverSearch && !coverSettings && !about));
 
   return (
     <>
       {/* (the Seerah is a world of its own: over the whole screen, without the Qur'an's sky or frame) */}
-      {phase !== "seerah" && <Backdrop theme={settings.theme} still={focus && phase === "read"} grain={settings.grain} />}
+      {phase !== "seerah" && <Backdrop grain={settings.grain} />}
       <AnimatePresence>
         {phase === "seerah" && (
           <motion.div key="seerah" className="fixed inset-0 z-10" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.7 } }} exit={{ opacity: 0, transition: { duration: 0.35 } }}>
@@ -240,15 +272,16 @@ export default function App() {
       </AnimatePresence>
 
       {phase !== "seerah" && (
-        <Frame rect={rect} instant={firstFrame} quick={reflow} amplitude={settings.reduceMotion || settings.theme === "paper" || focus ? 0 : phase === "read" ? 0.45 : 1}>
+        <Frame rect={rect} instant={firstFrame} quick={reflow} backBelow={phase === "read" && vp.mobile && !focus ? Math.max(0, vp.h - rect.top - rect.height) : 0}>
           <AnimatePresence>
             {phase === "intro" && !entering && (
-              <motion.div key="intro" className="absolute inset-[3px]" exit={{ opacity: 0, transition: { duration: 0.25 } }}>
+              <motion.div key="intro" className="absolute inset-[3px]" exit={{ opacity: 0, transition: { duration: 0.15 } }}>
                 <Intro
                   onEnter={enter}
-                  onSettings={() => {
+                  onSettings={(tab) => {
                     setCoverSearch(false);
-                    setCoverSettings((o) => !o);
+                    setSettingsTab(tab);
+                    setCoverSettings((o) => (tab ? true : !o));
                   }}
                   settingsOpen={coverSettings}
                   mobile={vp.mobile}
@@ -265,16 +298,17 @@ export default function App() {
                     history.replaceState(null, "", "#/video");
                     setPhase("video");
                   }}
+                  onContinue={goTo}
                 />
               </motion.div>
             )}
             {phase === "select" && index && (
-              <motion.div key="select" className="absolute inset-[3px]" exit={{ opacity: 0, transition: { duration: 0.45 } }}>
+              <motion.div key="select" className="absolute inset-[3px]" exit={{ opacity: 0, transition: { duration: 0.18 } }}>
                 <Select surahs={index.surahs} juz={index.juz} initialSurah={indexAt.surah} initialAyah={indexAt.ayah} onOpen={onOpen} mobile={vp.mobile} resume={resume} onSettings={() => setCoverSettings((o) => !o)} settingsOpen={coverSettings} onBack={() => (setCoverSettings(false), setPhase("intro"))} />
               </motion.div>
             )}
             {phase === "video" && index && (
-              <motion.div key="video" className="absolute inset-[3px]" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.5, delay: 0.2 } }} exit={{ opacity: 0, transition: { duration: 0.3 } }}>
+              <motion.div key="video" className="absolute inset-[3px]" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.25, delay: 0.1 } }} exit={{ opacity: 0, transition: { duration: 0.15 } }}>
                 <Suspense fallback={null}>
                   <Studio
                     surahs={index.surahs}
@@ -288,7 +322,7 @@ export default function App() {
               </motion.div>
             )}
             {phase === "read" && index && (
-              <motion.div key={`read-${readKey}`} className="absolute inset-[3px]" exit={{ opacity: 0, transition: { duration: 0.3 } }}>
+              <motion.div key={`read-${readKey}`} className="absolute inset-[3px]" exit={{ opacity: 0, transition: { duration: 0.18 } }}>
                 <Read
                   surahs={index.surahs}
                   juz={index.juz}
@@ -301,22 +335,14 @@ export default function App() {
             )}
           </AnimatePresence>
           {(phase === "intro" || phase === "select") && index && (
-            <SettingsPanel open={coverSettings} onClose={() => setCoverSettings(false)} surahs={index.surahs} onGo={goTo} mobile={vp.mobile} />
+            <SettingsPanel key={settingsTab ?? "all"} open={coverSettings} startTab={settingsTab} onClose={() => setCoverSettings(false)} surahs={index.surahs} onGo={goTo} mobile={vp.mobile} />
           )}
           <AboutPanel open={about} onClose={() => setAbout(false)} />
         </Frame>
       )}
 
-      <CoverStrip show={cover && !coverSearch} rect={rect} mobile={vp.mobile} surahs={index?.surahs} onSearch={openCoverSearch} onContinue={goTo} />
-      <CoverThemes show={cover && !coverSearch} mobile={vp.mobile} />
+      {phase !== "seerah" && <AppNav active={navActive} onGo={onNav} mobile={vp.mobile} show={navShown} />}
       <ContextMenu />
-      {/* Paper draws its icons in ink: the line a little uneven, as by a pen */}
-      <svg width="0" height="0" className="absolute" aria-hidden>
-        <filter id="ink-line" x="-10%" y="-10%" width="120%" height="120%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="1" seed="3" result="n" />
-          <feDisplacementMap in="SourceGraphic" in2="n" scale="0.9" />
-        </filter>
-      </svg>
       <Grain on={settings.grain && !isTouch()} />
     </>
   );

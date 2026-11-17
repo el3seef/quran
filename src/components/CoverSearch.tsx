@@ -6,7 +6,7 @@ import type { Result } from "@/lib/search";
 import { ResultList, resultKeys, useSearchResults } from "./SearchBox";
 import { EASE_OUT, cn } from "@/lib/utils";
 
-const TRY = ["18", "2:255", "Kahf", "الكهف", "mercy", "Juz 30"];
+const TRY = ["2:255", "Kahf", "الكهف", "page 50", "last ayah of Yasin", "verses about patience", "Juz 30"];
 
 /**
  * The cover's search, open: the field under the header, what it finds below it; a pick opens the
@@ -80,12 +80,12 @@ export function CoverSearch({
   const shown = q.trim().length > 1 || all.length > 0;
 
   return (
-    <div className={cn("absolute inset-x-0 bottom-0 top-12 z-20 flex flex-col md:top-[52px]", !open && "pointer-events-none")} aria-hidden={!open}>
+    <div className={cn("absolute inset-x-0 bottom-0 top-14 z-20 mx-auto flex w-full max-w-[680px] flex-col md:top-16", !open && "pointer-events-none")} aria-hidden={!open}>
       <motion.div
-        className="flex h-12 shrink-0 items-center gap-2.5 border-b border-[var(--box-line)] pl-5 pr-2 md:h-14 md:pl-7"
+        className="mx-3 flex h-12 shrink-0 items-center gap-2.5 rounded-full border border-[var(--box-line)] bg-[var(--surface)] pl-4 pr-1.5 md:mx-6 md:h-14 md:pl-5"
         initial={false}
         animate={open ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
-        transition={{ duration: open ? 0.4 : 0.2, ease: EASE_OUT }}
+        transition={{ duration: open ? 0.22 : 0.15, ease: EASE_OUT }}
       >
         <Search size={15} strokeWidth={1.6} className="shrink-0 text-[var(--box-faint)]" />
         <input
@@ -127,10 +127,10 @@ export function CoverSearch({
         </button>
       </motion.div>
 
-      <div ref={listRef} role="listbox" aria-label="Results" className="thin-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain" style={{ maxHeight: maxH }}>
+      <div ref={listRef} role="listbox" aria-label="Results" className="thin-scroll mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 md:px-4" style={{ maxHeight: maxH }}>
         <AnimatePresence mode="wait" initial={false}>
           {open && !shown && (
-            <motion.div key="try" className="px-5 pb-6 pt-5 md:px-7" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.35, delay: 0.1, ease: EASE_OUT }}>
+            <motion.div key="try" className="px-4 pb-6 pt-4 md:px-3" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.22, delay: 0.05, ease: EASE_OUT }}>
               <div className="label-sm text-[var(--box-faint)]">Try</div>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {TRY.map((t) => (
@@ -143,7 +143,7 @@ export function CoverSearch({
                       inputRef.current?.focus({ preventScroll: true });
                     }}
                     dir="auto"
-                    className={cn("pill h-8 border border-[var(--box-line)] px-3 text-[var(--box-muted)] transition-colors hover:border-[var(--box-muted)] hover:text-[var(--box-fg)]", /[؀-ۿ]/.test(t) ? "font-kufi text-[15px]" : "font-serif text-[14px]")}
+                    className={cn("pill press h-8 border border-[var(--box-line)] px-3 text-[var(--box-muted)] transition-colors duration-150 hover:border-[var(--box-faint)] hover:text-[var(--box-fg)]", /[؀-ۿ]/.test(t) ? "font-kufi text-[15px]" : "text-[13.5px]")}
                   >
                     {t}
                   </button>
@@ -152,7 +152,7 @@ export function CoverSearch({
             </motion.div>
           )}
           {open && shown && (
-            <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }}>
               <ResultList all={all} active={active} setActive={setActive} pick={pick} loadingText={loadingText} />
             </motion.div>
           )}

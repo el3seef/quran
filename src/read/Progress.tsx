@@ -189,24 +189,25 @@ export function ProgressTab({ surahs, onGo }: { surahs: Surah[]; onGo: (s: numbe
 
   return (
     <>
-      <div ref={top} className="text-[13px] text-[var(--box-muted)]">Mark a surah as completed at its end, or here: choose it below.</div>
+      <div ref={top} className="card flex flex-col gap-5 px-5 py-5 md:px-7 md:py-6">
+      <div className="text-[13px] text-[var(--box-muted)]">Mark a surah as completed at its end, or here: choose it below.</div>
 
       <div>
         <div className="flex items-baseline gap-3">
-          <span className="display font-serif text-[44px] leading-none italic tabular-nums md:text-[56px]">{n}</span>
-          <span className="label text-[var(--box-faint)]">of 114 surahs completed</span>
+          <span className="text-[44px] font-semibold leading-none tracking-[-0.03em] tabular-nums md:text-[56px]">{n}</span>
+          <span className="text-[13px] text-[var(--box-muted)]">of 114 surahs completed</span>
         </div>
-        <div className="mt-3 h-[3px] w-full bg-[var(--box-line)]">
-          <motion.div className="h-full bg-[var(--box-fg)]" initial={false} animate={{ width: `${(n / 114) * 100}%` }} transition={{ duration: 0.6, ease: EASE_OUT }} />
+        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[var(--box-hover)]">
+          <motion.div className="h-full rounded-full bg-[var(--box-fg)]" initial={false} animate={{ width: `${(n / 114) * 100}%` }} transition={{ duration: 0.6, ease: EASE_OUT }} />
         </div>
-        <div className="label-sm mt-2 text-[var(--box-faint)] tabular-nums">
+        <div className="mt-2 text-[12px] text-[var(--box-faint)] tabular-nums">
           {ayat.toLocaleString()} of {TOTAL_AYAT.toLocaleString()} ayat · {((ayat / TOTAL_AYAT) * 100).toFixed(ayat ? 1 : 0)}%
         </div>
       </div>
 
       {/* the 114, in order: completed ones filled; one chosen opens its bar below */}
       <div>
-        <div className="grid grid-cols-[repeat(19,minmax(0,1fr))] gap-[3px]" role="listbox" aria-label="The 114 surahs">
+        <div className="grid max-w-[620px] grid-cols-[repeat(19,minmax(0,1fr))] gap-[3px]" role="listbox" aria-label="The 114 surahs">
           {surahs.map((s) => (
             <button
               key={s.n}
@@ -217,9 +218,9 @@ export function ProgressTab({ surahs, onGo }: { surahs: Surah[]; onGo: (s: numbe
               title={`${pad3(s.n)} ${ayn(s.tc)}${done[s.n] ? ` · completed ${fmtDate(done[s.n])}` : ""}`}
               aria-label={`${ayn(s.tc)}${done[s.n] ? ", completed" : ""}`}
               className={cn(
-                "relative aspect-square border transition-colors",
-                done[s.n] ? "border-[var(--box-fg)] bg-[var(--box-fg)]" : "border-[var(--box-line)] hover:border-[var(--box-muted)]",
-                pick === s.n && "outline outline-2 outline-offset-1 outline-[var(--color-gold)]",
+                "relative aspect-square rounded-[6px] transition-colors duration-150",
+                done[s.n] ? "bg-[var(--box-fg)]" : "bg-[var(--box-hover)] hover:bg-[var(--box-line)]",
+                pick === s.n && "outline outline-2 outline-offset-1 outline-[var(--box-accent)]",
               )}
             >
               {/* something kept in it: a small mark in the corner */}
@@ -231,18 +232,19 @@ export function ProgressTab({ surahs, onGo }: { surahs: Surah[]; onGo: (s: numbe
           {pick ? (
             <PickBar key={pick} surah={surahs[pick - 1]} hasKept={kept.has(pick)} onGo={onGo} onJournal={() => open(pick)} />
           ) : (
-            <motion.div key="hint" className="label-sm mt-3 text-[var(--box-faint)]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div key="hint" className="mt-3 text-[12px] text-[var(--box-faint)]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               Choose a surah to mark it, or to open it
             </motion.div>
           )}
         </AnimatePresence>
+      </div>
       </div>
 
       <GoalBox goal={goal} done={done} surahs={surahs} editing={editing || !goal} onEdit={setEditing} />
 
       {/* every surah the reader has kept something in: its journal */}
       {withKept.length > 0 && (
-        <div>
+        <div className="card px-5 py-5 md:px-7">
           <div className="flex items-baseline justify-between gap-3">
             <span className="text-[15px]">Your notes and highlights</span>
             <span className="label-sm text-[var(--box-faint)]">{withKept.length} surah{withKept.length === 1 ? "" : "s"}</span>
@@ -257,12 +259,12 @@ export function ProgressTab({ surahs, onGo }: { surahs: Surah[]; onGo: (s: numbe
       )}
 
       {recent.length > 0 && (
-        <div>
+        <div className="card px-5 py-5 md:px-7">
           <div className="mb-1 text-[15px]">Recently completed</div>
           {recent.map(([s, at]) => (
-            <div key={s} className="flex items-baseline gap-3 border-t border-[var(--box-line)] py-2">
+            <div key={s} className="flex items-baseline gap-3 py-2">
               <span className="w-[3ch] font-mono text-[11px] text-[var(--box-faint)] tabular-nums">{pad3(Number(s))}</span>
-              <button type="button" onClick={() => onGo(Number(s), 1)} className="min-w-0 flex-1 truncate text-left font-serif text-[16px] italic hover:text-[var(--color-gold)]">
+              <button type="button" onClick={() => onGo(Number(s), 1)} className="min-w-0 flex-1 truncate text-left text-[15px] font-medium hover:text-[var(--box-accent)]">
                 {nameMarks(surahs[Number(s) - 1]?.tc)}
               </button>
               <span className="label-sm text-[var(--box-faint)]">{fmtDate(at)}</span>
@@ -275,12 +277,12 @@ export function ProgressTab({ surahs, onGo }: { surahs: Surah[]; onGo: (s: numbe
       )}
 
       {n > 0 && (
-        <div className="flex items-center justify-end gap-4 border-t border-[var(--box-line)] pt-5">
+        <div className="flex items-center justify-end gap-4 pt-1">
           <button
             type="button"
             onClick={() => (confirm ? (useStore.setState({ done: {} }), setConfirm(false)) : setConfirm(true))}
             onBlur={() => setConfirm(false)}
-            className={cn("label border px-3 py-2 transition-colors", confirm ? "border-[var(--box-fg)] bg-[var(--box-fg)] text-[var(--box-bg-solid)]" : "border-[var(--box-line)] text-[var(--box-muted)] hover:border-[var(--box-fg)]")}
+            className={cn("chip h-10 px-4 text-[13px]", confirm && "is-on")}
           >
             {confirm ? "Press again to clear all ticks" : "Start again"}
           </button>
@@ -295,7 +297,7 @@ function PickBar({ surah, hasKept, onGo, onJournal }: { surah: Surah; hasKept: b
   const { done, press, burst } = useCompleting(surah.n);
   return (
     <motion.div
-      className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-3 border border-[var(--box-line)] px-3 py-2.5"
+      className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-2xl bg-[var(--box-hover)] px-4 py-3"
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, transition: { duration: 0.1 } }}
@@ -303,7 +305,7 @@ function PickBar({ surah, hasKept, onGo, onJournal }: { surah: Surah; hasKept: b
     >
       <div className="flex min-w-[170px] flex-1 items-baseline gap-2.5">
         <span className="font-mono text-[11px] text-[var(--box-faint)] tabular-nums">{pad3(surah.n)}</span>
-        <span className="truncate font-serif text-[18px] italic">{nameMarks(surah.tc)}</span>
+        <span className="truncate text-[16px] font-semibold tracking-[-0.015em]">{nameMarks(surah.tc)}</span>
         <span className="label-sm shrink-0 text-[var(--box-faint)]">{surah.count} ayat</span>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -312,10 +314,7 @@ function PickBar({ surah, hasKept, onGo, onJournal }: { surah: Surah; hasKept: b
           onClick={press}
           data-sfx="none"
           aria-pressed={!!done}
-          className={cn(
-            "pill relative flex h-8 items-center gap-2 border px-3 text-[13px] transition-colors",
-            done ? "border-[var(--box-fg)] bg-[var(--box-fg)] text-[var(--box-bg-solid)]" : "border-[var(--box-line)] text-[var(--box-fg)] hover:border-[var(--box-fg)]",
-          )}
+          className={cn("chip relative h-9 gap-2 px-3.5 text-[13px]", done && "is-on")}
         >
           <span className="relative flex h-3.5 w-3.5 items-center justify-center">
             <Burst k={burst} />
@@ -324,12 +323,12 @@ function PickBar({ surah, hasKept, onGo, onJournal }: { surah: Surah; hasKept: b
           {done ? `Completed · ${fmtDate(done)}` : "Mark as completed"}
         </button>
         {hasKept && (
-          <button type="button" onClick={onJournal} className="pill flex h-8 items-center gap-1.5 border border-[var(--box-line)] px-3 text-[13px] text-[var(--box-muted)] transition-colors hover:border-[var(--box-fg)] hover:text-[var(--box-fg)]">
+          <button type="button" onClick={onJournal} className="chip h-9 px-3.5 text-[13px]">
             <NotebookPen size={13} strokeWidth={1.6} />
             Notes &amp; highlights
           </button>
         )}
-        <button type="button" onClick={() => onGo(surah.n, 1)} className="pill flex h-8 items-center border border-[var(--box-line)] px-3 text-[13px] text-[var(--box-muted)] transition-colors hover:border-[var(--box-fg)] hover:text-[var(--box-fg)]">
+        <button type="button" onClick={() => onGo(surah.n, 1)} className="chip h-9 px-3.5 text-[13px]">
           Read →
         </button>
       </div>
@@ -341,9 +340,9 @@ function PickBar({ surah, hasKept, onGo, onJournal }: { surah: Surah; hasKept: b
 function KeptRow({ surah, kept, done, onOpen }: { surah: Surah; kept: Kept; done: boolean; onOpen: () => void }) {
   const colours = HIGHLIGHT_COLORS.filter((c) => kept.hl.some((h) => h.color === c));
   return (
-    <button type="button" onClick={onOpen} className="group flex items-center gap-3 border-t border-[var(--box-line)] py-2.5 text-left transition-colors hover:bg-[var(--box-hover)]">
+    <button type="button" onClick={onOpen} className="group -mx-2 flex items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-colors hover:bg-[var(--box-hover)]">
       <span className="w-[3ch] shrink-0 font-mono text-[11px] text-[var(--box-faint)] tabular-nums">{pad3(surah.n)}</span>
-      <span className="min-w-0 flex-1 truncate font-serif text-[16px] italic">{nameMarks(surah.tc)}</span>
+      <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{nameMarks(surah.tc)}</span>
       <span className="flex shrink-0 items-center gap-3 text-[var(--box-faint)]">
         {kept.hl.length > 0 && (
           <span className="flex items-center gap-1.5" title={`${kept.hl.length} highlight${kept.hl.length === 1 ? "" : "s"}`}>
@@ -431,7 +430,7 @@ function SurahJournal({ surah, kept, onBack, onGo }: { surah: Surah; kept: Kept 
       </div>
 
       {r && (
-        <div className="border border-[var(--box-line)] p-4 md:p-5">
+        <div className="card px-5 py-5 md:px-7">
           <div className="flex items-baseline justify-between gap-3">
             <span className="text-[15px]">Your reflection</span>
             <span className="label-sm text-[var(--box-faint)]">{fmtDate(r.updatedAt)}</span>
@@ -568,9 +567,9 @@ function VoicePlay({ note }: { note: Note }) {
 function GoalBox({ goal, done, surahs, editing, onEdit }: { goal: Goal | null; done: Record<string, number>; surahs: Surah[]; editing: boolean; onEdit: (v: boolean) => void }) {
   const setGoal = useStore((s) => s.setGoal);
   return (
-    <div className="border border-[var(--box-line)] p-4 md:p-5">
+    <div className="card px-5 py-5 md:px-7">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-[15px]">Reading goal</span>
+        <span className="text-[15px] font-medium">Reading goal</span>
         {goal && !editing && (
           <span className="flex gap-3">
             <button type="button" onClick={() => onEdit(true)} className="label-sm text-[var(--box-faint)] hover:text-[var(--box-fg)]">
@@ -616,7 +615,7 @@ function GoalStatus({ goal, done, surahs }: { goal: Goal; done: Record<string, n
     const perDay = left ? Math.ceil(ayatLeft / left) : ayatLeft;
     return (
       <div className="mt-3">
-        <div className="font-serif text-[18px]">The whole Qur'an by {fmtDate(goal.by)}</div>
+        <div className="text-[17px] font-semibold tracking-[-0.015em]">The whole Qur'an by {fmtDate(goal.by)}</div>
         <Bar part={n} whole={114} />
         <div className="mt-2 text-[13px] text-[var(--box-muted)]">
           {n === 114
@@ -634,7 +633,7 @@ function GoalStatus({ goal, done, surahs }: { goal: Goal; done: Record<string, n
   const daysLeft = Math.max(1, Math.ceil((end - now.getTime()) / DAY));
   return (
     <div className="mt-3">
-      <div className="font-serif text-[18px]">
+      <div className="text-[17px] font-semibold tracking-[-0.015em]">
         {goal.count} surah{goal.count === 1 ? "" : "s"} {goal.kind === "week" ? "a week" : "a month"}
       </div>
       <Bar part={Math.min(n, goal.count)} whole={goal.count} />
@@ -649,8 +648,8 @@ function GoalStatus({ goal, done, surahs }: { goal: Goal; done: Record<string, n
 
 function Bar({ part, whole }: { part: number; whole: number }) {
   return (
-    <div className="mt-3 h-[3px] w-full bg-[var(--box-line)]">
-      <motion.div className="h-full bg-[var(--color-gold)]" initial={false} animate={{ width: `${Math.min(100, (part / Math.max(1, whole)) * 100)}%` }} transition={{ duration: 0.6, ease: EASE_OUT }} />
+    <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[var(--box-hover)]">
+      <motion.div className="h-full rounded-full bg-[var(--box-accent)]" initial={false} animate={{ width: `${Math.min(100, (part / Math.max(1, whole)) * 100)}%` }} transition={{ duration: 0.6, ease: EASE_OUT }} />
     </div>
   );
 }

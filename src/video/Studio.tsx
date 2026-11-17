@@ -4,14 +4,14 @@ import { ArrowLeft, Dices, Download, LoaderCircle, Pause, Play, Share2, X } from
 import { arabicText, loadSurah, translationText, TRANSLATIONS, type Surah, type SurahData, type Translation } from "@/lib/data";
 import { ModeGlyph } from "@/components/glyphs";
 import { cn } from "@/lib/utils";
-import { joinAyahs, VOICES, type Piece } from "./audio";
+import { recitation, voiceOf, VOICES, type Piece } from "./audio";
 import { makeVideo } from "./export";
 import { FONTS, Scene, type Cue, type Grade, type Look, type Motion, type Place, type Words } from "./render";
 import PAINTINGS from "./paintings.json";
 
 /**
- * An ayah made into a video to share: chosen ayahs, recited by a chosen voice, cut exactly where they
- * begin and end; their words small over a classical painting, as a quiet hand-made edit would set
+ * An ayah made into a video to share: chosen ayahs, recited by a chosen voice (the reader's own
+ * reciters heard in one unbroken stretch of their recitation, from the first ayah's start to the last's end); their words small over a classical painting, as a quiet hand-made edit would set
  * them (the Arabic, its meaning under it); the painting moving slowly under film grain and dust,
  * fading up from black and back to it. Every choice can be made, or all of them left to chance.
  */
@@ -149,13 +149,13 @@ export default function Studio({ surahs, mobile, onBack }: { surahs: Surah[]; mo
   const [audio, setAudio] = useState<{ buffer: AudioBuffer; pieces: Piece[]; duration: number } | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const voice = VOICES.find((v) => v.id === c.voice) ?? VOICES[0];
+  const voice = voiceOf(c.voice);
   useEffect(() => {
     let alive = true;
     setError(null);
     const t = setTimeout(() => {
       setLoading("Fetching the recitation");
-      joinAyahs(voice.dir, c.s, from, to, { bism: c.bism, lead: 1.1, tail: 1.9, gap: 0.35 }, (n, of) => alive && setLoading(`Fetching the recitation · ${n} of ${of}`))
+      recitation(voice, c.s, from, to, { bism: c.bism, lead: 1.1, tail: 1.9 }, (n, of) => alive && n && setLoading(of > 1 ? `Fetching the recitation · ${n} of ${of}` : "Fetching the recitation"))
         .then((a) => alive && (setAudio(a), setLoading(null)))
         .catch((e) => alive && (setError(String(e?.message ?? e)), setLoading(null)));
     }, 350);
@@ -163,7 +163,7 @@ export default function Studio({ surahs, mobile, onBack }: { surahs: Surah[]; mo
       alive = false;
       clearTimeout(t);
     };
-  }, [voice.dir, c.s, from, to, c.bism]);
+  }, [voice, c.s, from, to, c.bism]);
 
   const cues = useMemo(() => (audio ? cuesOf(audio.pieces, texts, W, H, c.words) : []), [audio, texts, W, H, c.words]);
 
@@ -319,23 +319,23 @@ export default function Studio({ surahs, mobile, onBack }: { surahs: Surah[]; mo
 
   return (
     <div className="studio relative flex h-full flex-col text-[var(--box-fg)]">
-      <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-[var(--box-line)] pl-2 pr-2 md:h-[52px] md:pl-3">
+      <header className="flex h-[64px] shrink-0 items-center justify-between gap-2 px-3 md:h-[76px] md:px-5">
         <div className="flex min-w-0 items-center gap-2">
-          <button type="button" onClick={onBack} aria-label="Back to the first page" title="Back" className="flex h-9 w-9 items-center justify-center text-[var(--box-muted)] hover:bg-[var(--box-hover)] hover:text-[var(--box-fg)]">
-            <ArrowLeft size={16} strokeWidth={1.6} />
+          <button type="button" onClick={onBack} aria-label="Back to the first page" title="Back" className="circle-btn">
+            <ArrowLeft size={18} strokeWidth={1.9} />
           </button>
-          <span className="display truncate font-serif text-[19px] italic leading-none md:text-[21px]">Share an Āyah</span>
+          <span className="truncate pl-1 text-[17px] font-semibold leading-none tracking-[-0.02em] md:text-[21px]">Share an Āyah</span>
           <span className="font-kufi text-[18px] leading-none text-[var(--box-muted)] max-md:hidden" dir="rtl" lang="ar">
             شارك آية
           </span>
         </div>
         <div className="flex items-center gap-1">
-          <button type="button" onClick={surprise} title="Surprise me: the painting, its look and the words' place left to chance" className="flex h-9 items-center gap-2 px-2.5 text-[var(--box-muted)] hover:bg-[var(--box-hover)] hover:text-[var(--box-fg)]">
-            <Dices size={15} strokeWidth={1.6} />
-            <span className="label max-md:hidden">Surprise me</span>
+          <button type="button" onClick={surprise} title="Surprise me: the painting, its look and the words' place left to chance" className="chip h-11 gap-2 px-4">
+            <Dices size={16} strokeWidth={1.8} />
+            <span className="max-md:hidden">Surprise me</span>
           </button>
-          <button type="button" onClick={make} disabled={!ready} className="btn-primary label flex h-9 items-center gap-2 border border-[var(--box-fg)] px-3 transition-colors hover:bg-[var(--box-fg)] hover:text-[var(--box-bg-solid)] disabled:opacity-40">
-            Make the video
+          <button type="button" onClick={make} disabled={!ready} className="btn-primary flex h-11 shrink-0 items-center gap-2 whitespace-nowrap px-4 text-[14px] font-medium disabled:opacity-40 md:px-5">
+            {mobile ? "Make video" : "Make the video"}
           </button>
         </div>
       </header>
@@ -346,7 +346,7 @@ export default function Studio({ surahs, mobile, onBack }: { surahs: Surah[]; mo
           <div className="relative flex min-h-0 w-full flex-1 items-center justify-center">
             <canvas
               ref={canvas}
-              className="studio-canvas max-h-full max-w-full shadow-[0_24px_60px_-24px_rgba(0,0,0,0.8)]"
+              className="studio-canvas max-h-full max-w-full rounded-[22px] shadow-[0_24px_60px_-24px_rgba(0,0,0,0.6)]"
               style={{ aspectRatio: `${W} / ${H}`, cursor: "grab", touchAction: "none" }}
               onPointerDown={(e) => {
                 drag.current = true;
@@ -370,7 +370,7 @@ export default function Studio({ surahs, mobile, onBack }: { surahs: Surah[]; mo
             )}
           </div>
           <div className="flex w-full max-w-[560px] items-center gap-3">
-            <button type="button" onClick={play} disabled={!ready} aria-label={playing ? "Pause" : "Play"} className="flex h-9 w-9 shrink-0 items-center justify-center border border-[var(--box-line)] hover:bg-[var(--box-hover)] disabled:opacity-40">
+            <button type="button" onClick={play} disabled={!ready} aria-label={playing ? "Pause" : "Play"} className="circle-btn is-dark disabled:opacity-40">
               {playing ? <Pause size={14} strokeWidth={1.6} /> : <Play size={14} strokeWidth={1.6} className="ml-px" />}
             </button>
             <input
@@ -393,7 +393,7 @@ export default function Studio({ surahs, mobile, onBack }: { surahs: Surah[]; mo
         </div>
 
         {/* the choices */}
-        <div className={cn("thin-scroll min-h-0 overflow-y-auto border-[var(--box-line)]", mobile ? "flex-1 border-t" : "w-[340px] shrink-0 border-l")}>
+        <div className={cn("thin-scroll flex min-h-0 flex-col gap-2.5 overflow-y-auto px-3 pb-3", mobile ? "flex-1" : "w-[360px] shrink-0 pl-0 pr-5")}>
           <Group title="Ayahs">
             <select className="studio-select" value={c.s} onChange={(e) => set({ s: Number(e.target.value), from: 1, to: Math.min(surahs[Number(e.target.value) - 1]?.count ?? 1, 3) })} aria-label="Surah">
               {surahs.map((s) => (
@@ -412,11 +412,20 @@ export default function Studio({ surahs, mobile, onBack }: { surahs: Surah[]; mo
 
           <Group title="Voice">
             <select className="studio-select" value={c.voice} onChange={(e) => set({ voice: e.target.value })} aria-label="Reciter">
-              {VOICES.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name}
-                </option>
-              ))}
+              <optgroup label="The reader's reciters · unbroken">
+                {VOICES.filter((v) => v.whole).map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="More voices · ayah by ayah">
+                {VOICES.filter((v) => !v.whole).map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           </Group>
 
@@ -493,7 +502,7 @@ export default function Studio({ surahs, mobile, onBack }: { surahs: Surah[]; mo
                   title={`${p.title} — ${p.artist}, ${p.year}`}
                   aria-label={`${p.title} by ${p.artist}`}
                   aria-pressed={c.painting === p.id}
-                  className={cn("relative aspect-[4/3] overflow-hidden border transition-[border-color,opacity]", c.painting === p.id ? "border-[var(--box-fg)]" : "border-transparent opacity-80 hover:opacity-100")}
+                  className={cn("press relative aspect-[4/3] overflow-hidden rounded-[12px] border-2 transition-[border-color,opacity]", c.painting === p.id ? "border-[var(--box-fg)]" : "border-transparent opacity-80 hover:opacity-100")}
                 >
                   <img src={`${import.meta.env.BASE_URL}video/paint/${p.id}-t.webp`} alt="" loading="lazy" className="h-full w-full object-cover" />
                 </button>
@@ -573,10 +582,10 @@ export default function Studio({ surahs, mobile, onBack }: { surahs: Surah[]; mo
 
 function Group({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
-    <section className="border-b border-[var(--box-line)] px-4 py-4 md:px-5">
+    <section className="card shrink-0 px-4 py-4">
       <div className="mb-2.5 flex items-baseline justify-between gap-3">
-        <span className="label text-[var(--box-faint)]">{title}</span>
-        {hint && <span className="truncate text-right font-serif text-[12.5px] italic text-[var(--box-muted)]">{hint}</span>}
+        <span className="text-[14px] font-medium">{title}</span>
+        {hint && <span className="truncate text-right text-[12.5px] text-[var(--box-muted)]">{hint}</span>}
       </div>
       <div className="flex flex-col gap-2">{children}</div>
     </section>
@@ -595,7 +604,7 @@ function Tiles<T extends string>({ value, onChange, items }: { value: T; onChang
           aria-label={name}
           title={name}
           onClick={() => onChange(v)}
-          className={cn("flex h-10 min-w-0 flex-1 items-center justify-center border transition-colors", value === v ? "border-[var(--box-fg)] bg-[var(--box-hover)] text-[var(--box-fg)]" : "border-[var(--box-line)] text-[var(--box-muted)] hover:bg-[var(--box-hover)] hover:text-[var(--box-fg)]")}
+          className={cn("press flex h-10 min-w-0 flex-1 items-center justify-center rounded-full transition-colors", value === v ? "bg-[var(--box-fg)] text-[var(--box-bg-solid)]" : "bg-[var(--box-hover)] text-[var(--box-muted)] hover:text-[var(--box-fg)]")}
         >
           {glyph}
         </button>
@@ -608,8 +617,8 @@ function Toggle({ label, on, onClick }: { label: ReactNode; on: boolean; onClick
   return (
     <button type="button" role="switch" aria-checked={on} onClick={onClick} className="flex w-full items-center justify-between gap-3 py-1 text-left">
       <span className="text-[13px] text-[var(--box-muted)]">{label}</span>
-      <span className={cn("pill relative h-4 w-7 shrink-0 border transition-colors", on ? "border-[var(--box-fg)]" : "border-[var(--box-line)]")}>
-        <span className={cn("pill absolute top-[2px] h-2.5 w-2.5 transition-all duration-300", on ? "left-[13px] bg-[var(--box-fg)]" : "left-[2px] bg-[var(--box-faint)]")} />
+      <span className={cn("relative h-6 w-10 shrink-0 rounded-full transition-colors duration-150", on ? "bg-[var(--box-fg)]" : "bg-[var(--box-line)]")}>
+        <span className={cn("absolute top-1 h-4 w-4 rounded-full bg-[var(--surface)] shadow transition-[left] duration-200 ease-out", on ? "left-5" : "left-1")} />
       </span>
     </button>
   );

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#4a0a0f" />
+    <meta name="theme-color" content="#f7f4ee" />
     <meta name="description" content="Read the Qur'an with the Quraan Made Easy, Saheeh International and Clear Quran translations, word-by-word meanings, highlights, notes and reflections." />
     <link rel="icon" type="image/png" sizes="48x48" href="/icons/icon-48.png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
@@ -17,13 +17,15 @@
     <script>
       // opened from the home screen (an app of its own): laid out to the whole screen (lib/layout.ts)
       if (matchMedia("(display-mode: standalone)").matches || navigator.standalone === true) document.documentElement.classList.add("standalone");
-      // the theme chosen last time, set before anything is drawn (no flash of another one); the site's
-      // own, Sajjadah, until one is chosen (and for a theme the site no longer has)
-      document.documentElement.dataset.theme = "crimson";
+      // the site's look, and whether by day or by night, set before anything is drawn (no flash of the
+      // other): the appearance held in Settings, or the device's own
+      document.documentElement.dataset.theme = "quiet";
+      var scheme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       try {
         var saved = JSON.parse(localStorage.getItem("quran-reader") || "{}").state.settings;
-        if (saved.theme === "paper" || saved.theme === "lunar") document.documentElement.dataset.theme = saved.theme;
+        if (saved.appearance === "light" || saved.appearance === "dark") scheme = saved.appearance;
       } catch (e) {}
+      document.documentElement.dataset.scheme = scheme;
     </script>
   </head>
   <body>

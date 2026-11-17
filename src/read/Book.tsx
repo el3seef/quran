@@ -1,6 +1,7 @@
 import { Fragment, memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { SurahData, Verse } from "@/lib/data";
+import type { Surah, SurahData, Verse } from "@/lib/data";
 import { loadLines, toArabicDigits } from "@/lib/data";
+import { loadPageFont, loadQcf, pageFontReady, qcfFamily, quarterName, type Qcf } from "@/lib/qcf";
 import type { Highlight, Settings } from "@/lib/store";
 import { renderArabic, renderPieces } from "./Ayah";
 import { arabicWords, translationPieces } from "./text";
@@ -14,11 +15,13 @@ import { cn } from "@/lib/utils";
  * meanings, highlights, notes and the slider work as they do ayah by ayah; its number opens the
  * ayah's own tools.
  *
- * The Arabic as a book is set line for line as the printed Madani mushaf (the King Fahd Complex's
- * 15-line print; the lines run on from page to page with nothing between): each printed line a row
- * of its own, reaching from side to side as the print's do. The letters are never drawn out or
- * pressed: one size for the whole surah, at which most lines fit as they are; a line is filled by the
- * spaces between its words alone, and one a little too long has its spaces closed a little, then (only
+ * The Arabic as a book is the printed Madani mushaf itself (the King Fahd Complex's 15-line print):
+ * page by page, each with its juz and quarter at its head and its number at its foot, every word in
+ * the page's own font (lib/qcf), so each line is the print's line and as wide as the others. One size
+ * for the whole book, from the page's width; a page's words show once its font has come.
+ * Without those fonts (offline, the page not yet kept) the page falls back to the reader's Hafs font,
+ * line for line: one size for the whole surah, at which most lines fit as they are; a line filled by
+ * the spaces between its words alone, one a little too long has its spaces closed a little, then (only
  * if that is not enough) is set a touch smaller. A line far too short to fill (the end of a surah, the
  * first pages) stands in the middle, as the print sets it. An ayah that runs over a line is one piece
  * on each line (the same data-key and data-field on each). Once the reader chooses a size of their own
@@ -26,6 +29,7 @@ import { cn } from "@/lib/utils";
  */
 export const BookText = memo(function BookText({
   surah,
+  meta,
   data,
   settings,
   mobile,
@@ -34,6 +38,7 @@ export const BookText = memo(function BookText({
   onFitted,
 }: {
   surah: number;
+  meta: Surah;
   data: SurahData;
   settings: Settings;
   mobile: boolean;
@@ -42,6 +47,20 @@ export const BookText = memo(function BookText({
   onFitted?: () => void; // its size set to the lines: the reader's place found again
 }) {
   const arabic = settings.readingMode === "arabic";
+  // the printed pages, glyph for glyph (the Madani script, at the book's own size)
+  const printed = arabic && settings.bookLines && settings.script !== "indopak";
+  const [qcf, setQcf] = useState<Qcf | null>(null);
+  useEffect(() => {
+    if (!printed) return;
+    let alive = true;
+    loadQcf(surah)
+      .then((q) => alive && setQcf(q))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [printed, surah]);
+  const pages = useMemo(() => (printed && qcf ? pagesOf(qcf, data) : null), [printed, qcf, data]);
   // the printed lines: for each ayah, the words a line begins at
   const [allLines, setAllLines] = useState<Record<string, number[]> | null>(null);
   const lined = arabic && settings.bookLines;
@@ -179,6 +198,8 @@ export const BookText = memo(function BookText({
     lineHeight: `${Math.round(base * 1.95)}px`,
   });
 
+  if (pages) return <PrintedBook pages={pages} surah={surah} meta={meta} data={data} settings={settings} hlByKey={hlByKey} bookmarks={bookmarks} onFitted={onFitted} />;
+
   if (lines)
     return (
       <section className="book px-3 pb-20 pt-10 md:px-[9%] md:pt-14" aria-label="The surah as continuous text">
@@ -217,7 +238,7 @@ export const BookText = memo(function BookText({
     );
 
   return (
-    <section className="book px-[max(6%,34px)] pb-20 pt-10 md:px-[9%] md:pt-14" aria-label="The surah as continuous text">
+    <section className="book px-3 pb-20 pt-6 sm:px-[max(6%,34px)] sm:pt-10 md:px-[6%] md:pt-12 xl:px-[9%]" aria-label="The surah as continuous text">
       <div className={cn("mx-auto", arabic ? "max-w-[860px]" : "max-w-[680px]")}>
         {paras.map((p, pi) => (
           <div key={pi} className={pi ? "mt-10" : ""}>
@@ -234,7 +255,7 @@ export const BookText = memo(function BookText({
                 })}
               </p>
             ) : (
-              <p className="book-tr text-start font-serif text-[var(--box-fg)] md:text-justify" dir="ltr" lang="en" style={{ fontSize: `calc(${trPx}px * var(--read-scale, 1))`, lineHeight: 1.8 }}>
+              <p className="book-tr text-start font-serif text-[var(--box-fg)] [hyphens:auto] xl:text-justify" dir="ltr" lang="en" style={{ fontSize: `calc(${trPx}px * var(--read-scale, 1))`, lineHeight: 1.8 }}>
                 {p.verses.map((v, vi) => {
                   const key = `${surah}:${v.n}`;
                   const tr = translationPieces(v, settings.translation);
@@ -260,6 +281,217 @@ export const BookText = memo(function BookText({
 
 /** a run of an ayah's words on one printed line */
 type Piece = { n: number; from: number; to: number; end: boolean };
+
+/* ── the printed pages (QCF V2) ─────────────────────────────────────────────────────────────────── */
+
+type PLine = { id: number; pieces: Piece[] };
+type PPage = { p: number; lines: PLine[]; j: number; r?: number };
+
+/** The surah's words on the print's lines and pages (a line is page × 100 + its line on the page). An
+ *  ayah's end marker the print sets at the head of the next line is a piece of its own there. */
+function pagesOf(q: Qcf, data: SurahData): PPage[] {
+  keepGlyphs(q, data);
+  const lines = new Map<number, PLine>();
+  const order: PLine[] = [];
+  const lineFor = (id: number) => {
+    let l = lines.get(id);
+    if (!l) lines.set(id, (l = { id, pieces: [] })), order.push(l);
+    return l;
+  };
+  data.v.forEach((v, i) => {
+    const a = q.v[i];
+    if (!a || !a.g.length) return;
+    let from = 0, cur = a.l[0];
+    for (let w = 1; w < a.g.length; w++) {
+      if (a.l[w] === cur) continue;
+      lineFor(cur).pieces.push({ n: v.n, from, to: w, end: false });
+      from = w;
+      cur = a.l[w];
+    }
+    const endHere = a.le === cur || !a.le;
+    lineFor(cur).pieces.push({ n: v.n, from, to: a.g.length, end: endHere });
+    if (!endHere) lineFor(a.le).pieces.push({ n: v.n, from: a.g.length, to: a.g.length, end: true });
+  });
+  const pages: PPage[] = [];
+  for (const l of order) {
+    const p = Math.floor(l.id / 100);
+    let pg = pages[pages.length - 1];
+    if (!pg || pg.p !== p) pages.push((pg = { p, lines: [], j: q.pages[p]?.j ?? 0, r: q.pages[p]?.r }));
+    pg.lines.push(l);
+  }
+  return pages;
+}
+
+/** How wide a full printed line is in the page fonts, in ems (measured: the print's lines are all
+ *  this wide, but for those it sets short, in the middle). */
+const LINE_EMS = 17.25;
+/** The print's leading, in ems. */
+const LEADING = 1.86;
+
+/** The book's size: the page's width held to a comfortable measure, the size at which a full line
+ *  meets it. Set before any page's font comes, so the pages never move as they arrive. */
+function PrintedBook({ pages, surah, meta, data, settings, hlByKey, bookmarks, onFitted }: {
+  pages: PPage[];
+  surah: number;
+  meta: Surah;
+  data: SurahData;
+  settings: Settings;
+  hlByKey: Map<string, Highlight[]>;
+  bookmarks: Record<string, number>;
+  onFitted?: () => void;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState(0);
+  const fittedRef = useRef(onFitted);
+  fittedRef.current = onFitted;
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const fit = () => {
+      const room = el.clientWidth;
+      if (room) setSize(Math.floor(((room * 0.99) / LINE_EMS) * 10) / 10);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  useLayoutEffect(() => {
+    if (size) fittedRef.current?.();
+  }, [size]);
+  return (
+    <section className="book printed-book px-4 pb-20 pt-6 md:px-[6%] md:pt-10" aria-label="The surah as printed in the Madani mushaf">
+      <div ref={box} className="mx-auto max-w-[620px]">
+        {size > 0 &&
+          pages.map((pg) => (
+            <PrintedPage key={pg.p} page={pg} size={size} surah={surah} meta={meta} data={data} script={settings.script} wordHover={settings.wordHover} hlByKey={hlByKey} bookmarks={bookmarks} />
+          ))}
+      </div>
+    </section>
+  );
+}
+
+/** One page of the print: its head (juz, a quarter of a hizb that begins on it, the surah), its lines
+ *  in its own font once that has come (fetched as the reader nears it), and its number at its foot.
+ *  A line the print sets short stands in the middle; one a hair too long for the screen is set a
+ *  touch smaller. */
+const PrintedPage = memo(function PrintedPage({ page, size, surah, meta, data, script, wordHover, hlByKey, bookmarks }: {
+  page: PPage;
+  size: number;
+  surah: number;
+  meta: Surah;
+  data: SurahData;
+  script: Settings["script"];
+  wordHover: boolean;
+  hlByKey: Map<string, Highlight[]>;
+  bookmarks: Record<string, number>;
+}) {
+  const el = useRef<HTMLDivElement>(null);
+  const [font, setFont] = useState<"ready" | "loading" | "failed">(() => (pageFontReady(page.p) ? "ready" : "loading"));
+  useEffect(() => {
+    if (font === "ready") return;
+    const node = el.current;
+    if (!node) return;
+    let alive = true;
+    const io = new IntersectionObserver(
+      (es) => {
+        if (!es.some((e) => e.isIntersecting)) return;
+        io.disconnect();
+        loadPageFont(page.p).then((ok) => alive && setFont(ok ? "ready" : "failed"));
+      },
+      { rootMargin: "150% 0px" },
+    );
+    io.observe(node);
+    return () => {
+      alive = false;
+      io.disconnect();
+    };
+  }, [page.p, font]);
+  // each line as the font draws it: in the middle if the print sets it short, smaller if too long
+  const [fits, setFits] = useState<{ mid: boolean; scale: number }[] | null>(null);
+  useLayoutEffect(() => {
+    const node = el.current;
+    if (font !== "ready" || !node) return;
+    const rows = [...node.querySelectorAll<HTMLElement>(".mushaf-line")];
+    const room = rows[0]?.parentElement?.clientWidth ?? 0;
+    if (!room) return;
+    node.classList.add("is-measuring");
+    const widths = rows.map((r) => r.getBoundingClientRect().width);
+    node.classList.remove("is-measuring");
+    // (what the screen shows is scaled with the page as it opens: widths against the room as laid out)
+    const shown = node.getBoundingClientRect().width / node.clientWidth || 1;
+    setFits(widths.map((w) => ((w /= shown), { mid: w < room * 0.86, scale: w > room ? Math.floor((room / w) * 1000) / 1000 : 1 })));
+  }, [font, size, page]);
+
+  const family = font === "failed" ? undefined : qcfFamily(page.p);
+  return (
+    <div ref={el} className="mushaf-page" data-page={page.p}>
+      <div className="mushaf-head label-sm" dir="ltr">
+        <span>
+          Juz’ {page.j}
+          {page.r ? `, ${quarterName(page.r)}` : ""}
+        </span>
+        <span className="mushaf-head-name">
+          {meta.tc} <span className="font-quran normal-case tracking-normal" lang="ar">{meta.ar}</span>
+        </span>
+      </div>
+      <div
+        className={cn("quran book-ar printed-lines", font !== "ready" && font !== "failed" && "is-waiting", font === "failed" && "is-fallback")}
+        dir="rtl"
+        lang="ar"
+        style={{ fontSize: font === "failed" ? size * 0.82 : size, lineHeight: `${Math.round(size * LEADING)}px`, fontFamily: family }}
+      >
+        {page.lines.map((line, li) => {
+          const fit = fits?.[li];
+          return (
+            <div key={line.id} className={cn("mushaf-line", fit?.mid && "is-mid")} style={fit && fit.scale < 1 ? { fontSize: size * fit.scale } : undefined}>
+              {line.pieces.map((pc) => {
+                const v = data.v[pc.n - 1];
+                const key = `${surah}:${v.n}`;
+                const glyphs = font === "failed" ? null : qcfWords(v, pc, script);
+                return (
+                  <Fragment key={`${pc.n}-${pc.from}`}>
+                    {pc.to > pc.from && (
+                      <span data-n={v.n} data-key={key} data-field="ar" className={cn(wordHover && "word-hover")}>
+                        {renderArabic(glyphs ?? arabicWords(v, script).words.slice(pc.from, pc.to), (hlByKey.get(key) ?? []).filter((h) => h.field === "ar"))}
+                      </span>
+                    )}
+                    {pc.end && (
+                      <>
+                        {pc.to > pc.from && " "}
+                        <AyahEnd n={v.n} k={key} marked={!!bookmarks[key]} arabic glyph={font === "failed" ? undefined : qcfEnd.get(v)} />
+                      </>
+                    )}{" "}
+                  </Fragment>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+      <div className="mushaf-foot label-sm">{page.p}</div>
+    </div>
+  );
+});
+
+/** The words of an ayah's piece as the print draws them: the reader's own words (their places in the
+ *  ayah's text, for highlights), each drawn by its glyph. */
+const qcfGlyphs = new WeakMap<Verse, string[]>();
+const qcfEnd = new WeakMap<Verse, string>();
+function qcfWords(v: Verse, pc: Piece, script: Settings["script"]) {
+  const g = qcfGlyphs.get(v);
+  const { words } = arabicWords(v, script);
+  return g ? words.slice(pc.from, pc.to).map((w) => ({ ...w, text: g[w.i] })) : null;
+}
+/** Keep each ayah's glyphs where its words are looked up. */
+function keepGlyphs(q: Qcf, data: SurahData) {
+  data.v.forEach((v, i) => {
+    const a = q.v[i];
+    if (!a) return;
+    qcfGlyphs.set(v, a.g);
+    qcfEnd.set(v, a.e);
+  });
+}
 /** A book line as fitted: its size, its word spacing closed (em, on a long line), and whether it is set
  *  in the middle (too short to fill). */
 type Fitted = { size: number; ws: number; mid?: boolean };
@@ -270,7 +502,7 @@ type Fitted = { size: number; ws: number; mid?: boolean };
  * height, so where one ayah ends and the next begins is plain at a glance. A tap on it opens the
  * ayah's tools; a bookmarked ayah's number is lit.
  */
-function AyahEnd({ n, k, marked, arabic }: { n: number; k: string; marked: boolean; arabic?: boolean }) {
+function AyahEnd({ n, k, marked, arabic, glyph }: { n: number; k: string; marked: boolean; arabic?: boolean; glyph?: string }) {
   return (
     <button
       type="button"
@@ -280,11 +512,11 @@ function AyahEnd({ n, k, marked, arabic }: { n: number; k: string; marked: boole
       aria-label={`Ayah ${n}: bookmark, note, copy or share`}
       className={cn(
         "ayah-end cursor-pointer transition-colors hover:text-[var(--box-accent)]",
-        arabic ? "inline rounded-none px-0.5 align-baseline font-quran" : "ayah-no",
+        glyph ? "inline rounded-none align-baseline" : arabic ? "inline rounded-none px-0.5 align-baseline font-quran" : "ayah-no",
         marked ? "is-marked text-[var(--box-accent)]" : "text-[var(--box-muted)]",
       )}
     >
-      {arabic ? toArabicDigits(n) : n}
+      {glyph ?? (arabic ? toArabicDigits(n) : n)}
     </button>
   );
 }

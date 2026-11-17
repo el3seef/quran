@@ -9,7 +9,9 @@ export const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.mi
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 
-export const EASE_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1];
+/** The site's two curves (index.css --ease-out, --ease-in-out): a strong ease-out for what enters,
+ *  leaves or answers a press (fast at once, then settling); ease-in-out for what moves across the page. */
+export const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1];
 
 /** f, when the page has a moment (Safari has no requestIdleCallback: a short wait there); returns a cancel */
 export function whenIdle(f: () => void, timeout = 1500) {
@@ -20,7 +22,7 @@ export function whenIdle(f: () => void, timeout = 1500) {
   const id = window.setTimeout(f, 60);
   return () => window.clearTimeout(id);
 }
-export const EASE_IN_OUT: [number, number, number, number] = [0.76, 0, 0.24, 1];
+export const EASE_IN_OUT: [number, number, number, number] = [0.77, 0, 0.175, 1];
 
 export async function copyText(text: string) {
   try {

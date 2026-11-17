@@ -147,26 +147,26 @@ export function TafsirPanel({ at, onGo, onClose, settings, mobile }: { at: { s: 
           <motion.div
             role="dialog"
             aria-label={`Tafsir as-Sa'di on ${ref}`}
-            className={cn("tafsir relative flex flex-col border border-[var(--box-line)] bg-[var(--box-bg-solid)] text-[var(--box-fg)] shadow-[0_30px_80px_-30px_rgba(0,0,0,0.7)]", mobile ? "h-[94%] w-[94%]" : "h-[90%] w-[min(820px,88%)]")}
-            initial={{ y: 24, scale: 0.98, opacity: 0 }}
+            className={cn("tafsir relative flex flex-col overflow-hidden rounded-[28px] bg-[var(--box-bg-solid)] text-[var(--box-fg)] shadow-[0_30px_80px_-30px_rgba(0,0,0,0.55)]", mobile ? "h-[94%] w-[94%]" : "h-[90%] w-[min(820px,88%)]")}
+            initial={{ y: 16, scale: 0.98, opacity: 0 }}
             animate={{ y: 0, scale: 1, opacity: 1 }}
-            exit={{ y: 12, opacity: 0 }}
-            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            exit={{ y: 8, opacity: 0, transition: { duration: 0.15 } }}
+            transition={{ duration: 0.26, ease: [0.23, 1, 0.32, 1] }}
           >
-            <div className="flex items-center justify-between gap-3 border-b border-[var(--box-line)] px-4 py-2.5 md:px-6">
-              <div className="flex min-w-0 items-baseline gap-3">
-                <span className="label text-[var(--box-faint)]">Tafsir as-Sa'di</span>
-                <span className="label truncate text-[var(--box-muted)]">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 md:px-6">
+              <div className="flex min-w-0 flex-col">
+                <span className="text-[16px] font-semibold tracking-[-0.015em]">Tafsir as-Sa'di</span>
+                <span className="truncate text-[12.5px] text-[var(--box-muted)]">
                   {surah ? `${surah.tr} · ` : ""}
                   <span className="tabular-nums">{ref}</span>
                 </span>
               </div>
-              <button type="button" onClick={onClose} aria-label="Close the tafsir" title="Close (Esc)" className="flex h-8 w-8 shrink-0 items-center justify-center text-[var(--box-muted)] hover:bg-[var(--box-hover)] hover:text-[var(--box-fg)]">
-                <X size={16} strokeWidth={1.6} />
+              <button type="button" onClick={onClose} aria-label="Close the tafsir" title="Close (Esc)" className="circle-btn is-md">
+                <X size={17} strokeWidth={1.9} />
               </button>
             </div>
 
-            <div ref={body} className="tafsir-body thin-scroll flex-1 overflow-y-auto px-5 pb-10 pt-6 md:px-10 md:pt-8">
+            <div ref={body} className="tafsir-body thin-scroll mx-2 flex-1 overflow-y-auto rounded-[22px] bg-[var(--surface)] px-5 pb-10 pt-6 md:mx-3 md:px-10 md:pt-8">
               {tafsir === null ? (
                 <p className="py-16 text-center font-serif text-[17px] italic text-[var(--box-muted)]">The tafsir of this surah is not here yet.</p>
               ) : tafsir === undefined || !data ? (
@@ -211,15 +211,15 @@ export function TafsirPanel({ at, onGo, onClose, settings, mobile }: { at: { s: 
               )}
             </div>
 
-            <div className="flex items-center justify-between border-t border-[var(--box-line)] px-2 py-1.5 md:px-4">
-              <button type="button" onClick={() => go(-1)} disabled={!tafsir || (pi <= 0 && s <= 1)} className="flex h-9 items-center gap-2 px-2 text-[var(--box-muted)] hover:text-[var(--box-fg)] disabled:opacity-30" aria-label="The passage before">
-                <ArrowLeft size={15} strokeWidth={1.6} />
-                <span className="label max-md:hidden">Before</span>
+            <div className="flex items-center justify-between px-2 py-2 md:px-3">
+              <button type="button" onClick={() => go(-1)} disabled={!tafsir || (pi <= 0 && s <= 1)} className="chip h-10 gap-2 px-4 disabled:opacity-30" aria-label="The passage before">
+                <ArrowLeft size={15} strokeWidth={1.8} />
+                <span className="max-md:hidden">Before</span>
               </button>
               <span className="label-sm text-[var(--box-faint)] tabular-nums">{tafsir && pi >= 0 ? `${pi + 1} / ${tafsir.p.length}` : ""}</span>
-              <button type="button" onClick={() => go(1)} disabled={!tafsir || (pi >= tafsir.p.length - 1 && s >= 114)} className="flex h-9 items-center gap-2 px-2 text-[var(--box-muted)] hover:text-[var(--box-fg)] disabled:opacity-30" aria-label="The passage after">
-                <span className="label max-md:hidden">After</span>
-                <ArrowRight size={15} strokeWidth={1.6} />
+              <button type="button" onClick={() => go(1)} disabled={!tafsir || (pi >= tafsir.p.length - 1 && s >= 114)} className="chip h-10 gap-2 px-4 disabled:opacity-30" aria-label="The passage after">
+                <span className="max-md:hidden">After</span>
+                <ArrowRight size={15} strokeWidth={1.8} />
               </button>
             </div>
           </motion.div>
